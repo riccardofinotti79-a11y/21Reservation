@@ -157,3 +157,13 @@ Stack: FastAPI + MongoDB + React/Tailwind + JWT auth + 5s polling + Resend email
 - **Public wizard**: when no slots available, shows "Iscrivimi alla lista d'attesa" CTA with inline form.
 - **Timeline**: rewritten to percentage-based layout — fits container width, no horizontal scroll. Booking blocks display text only when there's enough space.
 - Sidebar nav updated with Home + Lista d'attesa items.
+
+## Iteration 4 hotfix
+- Removed stray weekday-lunch opening_hours row (Monday lunch 11:30-15:30) — same class of test-artefact as iter3.
+- Post-cleanup: Tue-Sun dinner + Sat/Sun lunch only. iter3 test suite should now pass 15/15.
+
+## Backlog updates (Feb 2026)
+- P1: split server.py into routers (public.py, waitlist.py, whatsapp.py, payments.py, reports.py) — LOC crossed 1200.
+- P2: reports_home extend range_end to today+14 for cross-month upcoming preview.
+- P2: waitlist manual-notify re-check availability before sending.
+- P2: PublicBooking waitlist phone validation.
