@@ -1,0 +1,60 @@
+{
+  "summary": "Iteration 3 E2E testing. Backend: 12/15 new pytest cases pass. 3 failures all trace to a single root-cause data issue: an extra stray opening_hours row for weekday=1 (Tuesday) service_type='lunch' 12:30-15:00 that was NOT in seed.py but exists in the demo DB (likely produced by the one-off service_type backfill script mentioned in the review). Consequently Tuesday appears open for lunch in day + month availability, and public book for lunch on a weekday returns 200 instead of 400. All iteration 2 tests (12/12) still pass — no regressions. Frontend: 4-step wizard restructure works end-to-end — service (lunch/dinner cards with Sun/Moon icons) → persons → date+time (calendar left, slots right, 'Seleziona prima un giorno' placeholder) → contact. Message textarea placeholder is 'es. allergie, intolleranze, richieste particolari' as spec'd. Dinner flow for a Thursday with 4 guests picks slot-19:30 and reaches 'Grazie!' screen with CENA + 4 ospiti summary. Lunch flow: navigating to August 2026, Saturdays/Sundays are enabled, all weekdays are line-through, but Tuesdays are ALSO enabled (frontend correctly reflects the buggy backend data). Slots for a Saturday are exactly ['12:30','12:45','13:00','13:15','13:30'] — matches spec. Dinner slot count is 9 (not 11 as the review says) — that's because seed duration for 4 guests = 120min → last slot 21:00, so 19:00..21:00 @15m = 9 slots. Spec value of 11 slots would apply to 1-3 guests (90min). Not a defect. Settings WhatsApp UI: pricing card visible (Meta Cloud API + Twilio WhatsApp lines), provider dropdown disabled until s-wa-enabled toggled on, Twilio selection reveals s-wa-twilio-sid + s-wa-twilio-token, Meta selection reveals s-wa-meta-phone + s-wa-meta-token, wa-test-send with unconfigured creds shows toast 'WhatsApp non configurato: verifica provider e credenziali' (backend 400 as expected).",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "seed data / opening_hours",
+        "issue": "DB contains a stray opening_hours row for weekday=1 (Tuesday) service_type='lunch' 12:30-15:00 with title=''. This row is NOT in seed.py (seed.py only inserts lunch for Sat=5 and Sun=6). Impact: (1) GET /api/public/demo/availability/day?date=<Tue>&service=lunch returns open=true; (2) GET /api/public/demo/availability/month?service=lunch returns open=true for Tuesdays; (3) POST /api/public/demo/book with service='lunch' on a Tuesday succeeds with 200 instead of 400. The stray row is almost certainly an artefact of the one-off service_type backfill script (which likely mis-classified an old row) or of a leftover from an earlier CRUD test. Delete this row (db.opening_hours delete where weekday==1 and service_type=='lunch' and title=='') OR reseed to fix.",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": [
+      {
+        "endpoint": "GET /api/public/{sub}/services",
+        "issue": "Endpoint sorts services alphabetically returning ['dinner','lunch'], but the review's expected order is ['dinner','lunch'] (matches). Cosmetic only — if UI expects lunch-first ordering it must sort client-side."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Lunch calendar Tuesday enable",
+        "issue": "Tuesdays in month view are shown as SELECTABLE for lunch (not line-through) because backend returns open=true for Tue lunch — root cause is the stray Tuesday-lunch opening_hours row (see backend critical). Frontend rendering is correct given the API response.",
+        "affected_selectors": ["day-2026-08-04", "day-2026-08-11", "day-2026-08-18", "day-2026-08-25"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration3.py",
+    "/app/backend/tests/test_iteration2.py",
+    "/app/test_reports/pytest/iteration3_results.xml"
+  ],
+  "action_items": [
+    "Delete the stray Tuesday-lunch opening_hours row for the demo restaurant (weekday=1, service_type='lunch', title='' 12:30-15:00). Recommend a small cleanup script or `db.opening_hours.delete_many({restaurant_id: <demo>, weekday:1, service_type:'lunch'})`. After cleanup, re-run test_iteration3.py — expected 15/15 pass.",
+    "(Optional) Consider making seed.py idempotent + include a cleanup step so backfill artefacts cannot re-appear.",
+    "(Optional) Add validation in POST /public/{sub}/book: if body.service is passed but seed shows no lunch config for that weekday even after picking OH → double-check via services_available_on() to catch stale rows."
+  ],
+  "critical_code_review_comments": [
+    "server.py grew to 999 LOC (from 957 in iter2). The 700-line threshold has been exceeded for two iterations — split into routers (public.py, whatsapp.py, payments.py, etc.) is now overdue.",
+    "whatsapp_service.send_whatsapp catches all exceptions and returns False — this is fine for the caller but consider structured logging (provider, http-status) so ops can debug real Twilio/Meta failures without SSHing.",
+    "POST /api/whatsapp/test returns 502 on send failure — a real Twilio error (bad number, unverified sandbox) is not easily distinguishable from a network failure. Consider returning the provider's error message in the detail.",
+    "pick_opening_hour returns the FIRST matching row for the weekday+service — when duplicate rows exist for the same weekday+service (as with the stray Tuesday-lunch), only the first-inserted row wins. Consider deduping at query time OR adding a unique index (restaurant_id, weekday, service_type, open_time).",
+    "PATCH /restaurant still filters `if v is not None` inside the update (flagged in iter2) — new WhatsApp cred fields cannot be cleared to null via API. Not a bug for now (owner uses empty strings) but worth fixing.",
+    "GET /api/public/{sub}/services doesn't consider specific_date exceptions — a specific_date that opens an otherwise-closed weekday won't be reflected. Low priority for MVP."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration3.py"
+  ],
+  "success_rate": {
+    "backend": "80% (12/15 iteration-3 tests; 3 failures all traced to a single data artefact — logic is correct). Iteration 2 regression: 12/12 pass.",
+    "frontend": "100% on the 4-step wizard, message placeholder, and Settings WhatsApp UI. Lunch calendar shows the same Tuesday-open bug that comes from the backend data — frontend rendering itself is correct."
+  },
+  "test_credentials": "owner@demo.com / demo1234 (owner); staff@demo.com / demo1234 (staff); Public: /book/demo",
+  "seed_data_creation": "None new. Tests clean up their own TEST_ bookings. Note: my test toggled Twilio SID/token/whatsapp_from/enabled on the demo restaurant then reset enabled=false — the SID/token strings 'ACtestsid' / 'testtoken' / 'ACxxxxxTEST' / 'twilio-token-test' may remain in the record (they're used only when whatsapp_enabled=true, so no side-effects on public flows).",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 3 tests at /app/backend/tests/test_iteration3.py. Run: `cd /app/backend && python -m pytest tests/test_iteration3.py -v -n 0`. The 3 failing tests will start passing once the stray Tuesday-lunch opening_hours row is removed (see action_items). Wizard testid chain: service-{lunch|dinner} → step1-next → persons-quick-{N} → step2-next → day-{iso} (calendar defaults to CURRENT month; use the ›/‹ chevrons to navigate — chevron-right is a `svg.lucide-chevron-right` inside a button) → slot-{HH:MM} → step3-next → contact-name/email/phone/message + contact-terms → step4-submit. Provider select in Settings is a plain <select> element, so use page.select_option (not shadcn dropdown). WhatsApp test-send uses data-testid wa-test-to and wa-test-send.",
+  "rca_of_the_issue": "Root cause of the 3 failing iteration-3 backend tests + Tuesday-enable frontend behaviour: db.opening_hours has an unwanted row {weekday:1, service_type:'lunch', open_time:'12:30', close_time:'15:00', title:''} for the demo restaurant. seed.py only inserts lunch for weekday in [5,6]. Reproduction: run pytest tests/test_iteration3.py::TestDayAvailability::test_weekday_lunch_closed. Fix: remove the row from opening_hours OR re-run a corrected seed. After fix, month view will line-through Tuesdays for lunch and POST /public/demo/book on Tue with service='lunch' will return 400 'Ristorante chiuso in quella data'."
+}

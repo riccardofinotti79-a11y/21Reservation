@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Save } from "lucide-react";
+import { Save, Send, Loader2 } from "lucide-react";
 import api from "../api";
 import { useI18n } from "../i18n";
 import { useAuth } from "../auth";
@@ -12,6 +12,7 @@ export default function Settings() {
   const [r, setR] = useState(null);
   const [form, setForm] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [waTest, setWaTest] = useState({ to: "", busy: false });
 
   const load = useCallback(async () => {
     const { data } = await api.get("/restaurant");
@@ -33,6 +34,10 @@ export default function Settings() {
       whatsapp_enabled: !!data.whatsapp_enabled,
       whatsapp_provider: data.whatsapp_provider || "",
       whatsapp_from: data.whatsapp_from || "",
+      whatsapp_twilio_sid: data.whatsapp_twilio_sid || "",
+      whatsapp_twilio_auth_token: data.whatsapp_twilio_auth_token || "",
+      whatsapp_meta_phone_id: data.whatsapp_meta_phone_id || "",
+      whatsapp_meta_access_token: data.whatsapp_meta_access_token || "",
     });
   }, []);
 
@@ -48,6 +53,19 @@ export default function Settings() {
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Errore");
     } finally { setBusy(false); }
+  };
+
+  const testWhatsApp = async () => {
+    if (!waTest.to) { toast.error("Inserisci un numero (formato E.164, es. +391112223333)"); return; }
+    setWaTest((s) => ({ ...s, busy: true }));
+    try {
+      await api.post("/whatsapp/test", { to: waTest.to });
+      toast.success("Messaggio di test inviato");
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Invio fallito");
+    } finally {
+      setWaTest((s) => ({ ...s, busy: false }));
+    }
   };
 
   if (!form) return <div className="p-8 text-zinc-400">Caricamento…</div>;
@@ -93,7 +111,7 @@ export default function Settings() {
           </Field>
         </Section>
 
-        <Section title="Depositi grandi gruppi (Stripe)" subtitle="Richiedi un deposito ai gruppi sopra la soglia. Il deposito viene tolto dal totale a fine servizio.">
+        <Section title="Depositi grandi gruppi (Stripe)" subtitle="Richiedi un deposito ai gruppi sopra la soglia.">
           <label className="flex items-center gap-2 text-sm md:col-span-2">
             <input data-testid="s-deposit-enabled" type="checkbox" disabled={!isOwner}
                    checked={form.deposit_enabled}
@@ -129,7 +147,12 @@ export default function Settings() {
           </Field>
         </Section>
 
-        <Section title="WhatsApp (opzionale)" subtitle="Config per l'invio via WhatsApp. L'invio reale si attiva solo quando il provider è configurato.">
+        <Section title="WhatsApp" subtitle="Invia conferme e reminder anche via WhatsApp. Confronta i costi prima di scegliere.">
+          <div className="md:col-span-2 border border-zinc-200 rounded-md p-3 bg-zinc-50 text-xs text-zinc-600 space-y-1">
+            <div><strong>Meta Cloud API</strong>: 1000 conversazioni/mese gratis, poi ~$0.005-0.10 per conversazione. Setup più complesso (business verification).</div>
+            <div><strong>Twilio WhatsApp</strong>: nessun tier gratuito. Sandbox immediato per test. Costi Twilio ~$0.005/msg + fee Meta pass-through.</div>
+          </div>
+
           <label className="flex items-center gap-2 text-sm md:col-span-2">
             <input data-testid="s-wa-enabled" type="checkbox" disabled={!isOwner}
                    checked={form.whatsapp_enabled}
@@ -137,20 +160,70 @@ export default function Settings() {
             Abilita WhatsApp
           </label>
           <Field label="Provider">
-            <select disabled={!isOwner || !form.whatsapp_enabled}
+            <select data-testid="s-wa-provider" disabled={!isOwner || !form.whatsapp_enabled}
                     value={form.whatsapp_provider}
                     onChange={(e) => set("whatsapp_provider", e.target.value)} className="input">
-              <option value="">— non configurato —</option>
+              <option value="">— seleziona —</option>
               <option value="twilio">Twilio</option>
               <option value="meta">Meta Cloud API</option>
             </select>
           </Field>
-          <Field label="Numero mittente">
-            <input disabled={!isOwner || !form.whatsapp_enabled}
+          <Field label="Numero mittente (E.164)">
+            <input data-testid="s-wa-from" disabled={!isOwner || !form.whatsapp_enabled}
                    value={form.whatsapp_from}
                    onChange={(e) => set("whatsapp_from", e.target.value)} className="input"
                    placeholder="+390212345678" />
           </Field>
+
+          {form.whatsapp_provider === "twilio" && (
+            <>
+              <Field label="Twilio Account SID">
+                <input data-testid="s-wa-twilio-sid" disabled={!isOwner || !form.whatsapp_enabled}
+                       value={form.whatsapp_twilio_sid}
+                       onChange={(e) => set("whatsapp_twilio_sid", e.target.value)} className="input"
+                       placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" />
+              </Field>
+              <Field label="Twilio Auth Token">
+                <input data-testid="s-wa-twilio-token" type="password" disabled={!isOwner || !form.whatsapp_enabled}
+                       value={form.whatsapp_twilio_auth_token}
+                       onChange={(e) => set("whatsapp_twilio_auth_token", e.target.value)} className="input"
+                       placeholder="●●●●●●●●●●●●●●●●●●●●●●●●" />
+              </Field>
+            </>
+          )}
+          {form.whatsapp_provider === "meta" && (
+            <>
+              <Field label="Meta Phone Number ID">
+                <input data-testid="s-wa-meta-phone" disabled={!isOwner || !form.whatsapp_enabled}
+                       value={form.whatsapp_meta_phone_id}
+                       onChange={(e) => set("whatsapp_meta_phone_id", e.target.value)} className="input"
+                       placeholder="1234567890123456" />
+              </Field>
+              <Field label="Meta Access Token (permanent)">
+                <input data-testid="s-wa-meta-token" type="password" disabled={!isOwner || !form.whatsapp_enabled}
+                       value={form.whatsapp_meta_access_token}
+                       onChange={(e) => set("whatsapp_meta_access_token", e.target.value)} className="input"
+                       placeholder="EAAG●●●●●●●●●●●●●●●●●●●●" />
+              </Field>
+            </>
+          )}
+
+          {isOwner && form.whatsapp_enabled && form.whatsapp_provider && (
+            <div className="md:col-span-2 mt-2 flex flex-col md:flex-row gap-2 items-stretch md:items-end border-t border-zinc-100 pt-4">
+              <div className="flex-1">
+                <label className="label-eyebrow block mb-1">Prova l'invio</label>
+                <input data-testid="wa-test-to" value={waTest.to}
+                       onChange={(e) => setWaTest({ ...waTest, to: e.target.value })}
+                       placeholder="+391112223333"
+                       className="input" />
+              </div>
+              <button data-testid="wa-test-send" onClick={testWhatsApp} disabled={waTest.busy}
+                      className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md bg-emerald-700 text-white hover:bg-emerald-600 disabled:opacity-50">
+                {waTest.busy ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                Invia test
+              </button>
+            </div>
+          )}
         </Section>
       </div>
 

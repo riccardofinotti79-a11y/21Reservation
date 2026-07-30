@@ -48,6 +48,12 @@ class Restaurant(BaseModel):
     whatsapp_enabled: bool = False
     whatsapp_provider: Optional[str] = None  # "twilio" | "meta" | null
     whatsapp_from: Optional[str] = None
+    # Twilio credentials
+    whatsapp_twilio_sid: Optional[str] = None
+    whatsapp_twilio_auth_token: Optional[str] = None
+    # Meta Cloud API credentials
+    whatsapp_meta_phone_id: Optional[str] = None
+    whatsapp_meta_access_token: Optional[str] = None
     created_at: datetime = Field(default_factory=utc_now)
 
 
@@ -68,6 +74,10 @@ class RestaurantUpdate(BaseModel):
     whatsapp_enabled: Optional[bool] = None
     whatsapp_provider: Optional[str] = None
     whatsapp_from: Optional[str] = None
+    whatsapp_twilio_sid: Optional[str] = None
+    whatsapp_twilio_auth_token: Optional[str] = None
+    whatsapp_meta_phone_id: Optional[str] = None
+    whatsapp_meta_access_token: Optional[str] = None
 
 
 class User(BaseModel):
@@ -178,6 +188,7 @@ class OpeningHour(BaseModel):
     open_time: str  # "HH:MM"
     close_time: str  # "HH:MM"
     title: Optional[str] = None
+    service_type: Optional[str] = None  # "lunch" | "dinner" | "other"
     slot_interval_minutes: int = 15
     default_duration_minutes: int = 120
     duration_rules: List[DurationRule] = []
@@ -193,6 +204,7 @@ class OpeningHourCreate(BaseModel):
     open_time: str
     close_time: str
     title: Optional[str] = None
+    service_type: Optional[str] = None
     slot_interval_minutes: int = 15
     default_duration_minutes: int = 120
     duration_rules: List[DurationRule] = []
@@ -308,6 +320,7 @@ class BookingCreatePublic(BaseModel):
     guest_message: Optional[str] = None
     accept_terms: bool = True
     origin_url: Optional[str] = None  # for Stripe deposit redirect URLs
+    service: Optional[str] = None  # "lunch" | "dinner" | "other"
 
 
 class BookingUpdate(BaseModel):

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { ChevronLeft, ChevronRight, Minus, Plus, Check } from "lucide-react";
+import { ChevronLeft, ChevronRight, Minus, Plus, Check, Sun, Moon } from "lucide-react";
 import api from "../api";
 import { useI18n, MONTH_NAMES, WEEKDAY_NAMES } from "../i18n";
 import LanguageToggle from "../LanguageToggle";
@@ -24,6 +24,8 @@ export default function PublicBooking() {
   const { subdomain } = useParams();
   const { t, lang } = useI18n();
   const [restaurant, setRestaurant] = useState(null);
+  const [servicesOffered, setServicesOffered] = useState([]);
+  const [service, setService] = useState(null);
   const [step, setStep] = useState(1);
   const [persons, setPersons] = useState(2);
   const today = new Date();
@@ -40,36 +42,42 @@ export default function PublicBooking() {
 
   useEffect(() => {
     api.get(`/public/restaurant/${subdomain}`).then((r) => setRestaurant(r.data)).catch(() => toast.error("Ristorante non trovato"));
+    api.get(`/public/${subdomain}/services`).then((r) => {
+      const svcs = r.data.services || [];
+      setServicesOffered(svcs);
+      // If only one service, pre-select it
+      if (svcs.length === 1) setService(svcs[0]);
+    }).catch(() => setServicesOffered([]));
   }, [subdomain]);
 
-  // Load month availability whenever step=2 or month changes
+  // Reload month availability whenever service, persons, or month changes and we're at date step
   useEffect(() => {
-    if (step !== 2 || !restaurant) return;
-    api.get(`/public/${subdomain}/availability/month`, { params: { year, month, persons } })
+    if (step !== 3 || !restaurant || !service) return;
+    api.get(`/public/${subdomain}/availability/month`, { params: { year, month, persons, service } })
        .then((r) => {
          const m = {};
          (r.data.days || []).forEach((d) => { m[d.date] = d; });
          setMonthAvail(m);
-       })
-       .catch(() => {});
-  }, [step, year, month, persons, restaurant, subdomain]);
+       }).catch(() => {});
+  }, [step, year, month, persons, service, restaurant, subdomain]);
 
-  // Load slots on step 3
+  // Load slots when date changes on step 3
   useEffect(() => {
-    if (step !== 3 || !selectedDate) return;
+    if (step !== 3 || !selectedDate || !service) { setSlots([]); return; }
     setLoadingSlots(true);
-    api.get(`/public/${subdomain}/availability/day`, { params: { date: selectedDate, persons } })
+    setSelectedTime(null);
+    api.get(`/public/${subdomain}/availability/day`, { params: { date: selectedDate, persons, service } })
        .then((r) => setSlots(r.data.slots || []))
        .catch(() => setSlots([]))
        .finally(() => setLoadingSlots(false));
-  }, [step, selectedDate, persons, subdomain]);
+  }, [step, selectedDate, persons, service, subdomain]);
 
   const submit = async () => {
     if (!contact.terms) { toast.error("Devi accettare i termini"); return; }
     setSubmitting(true);
     try {
       const { data } = await api.post(`/public/${subdomain}/book`, {
-        date: selectedDate, time: selectedTime, persons,
+        date: selectedDate, time: selectedTime, persons, service,
         customer_name: contact.name, customer_email: contact.email,
         customer_phone: contact.phone, guest_message: contact.message,
         accept_terms: true,
@@ -86,19 +94,19 @@ export default function PublicBooking() {
   };
 
   const resetAll = () => {
-    setStep(1); setPersons(2); setSelectedDate(null); setSelectedTime(null);
+    setStep(1); setPersons(2); setSelectedDate(null); setSelectedTime(null); setService(servicesOffered.length === 1 ? servicesOffered[0] : null);
     setContact({ name: "", email: "", phone: "", message: "", terms: false });
     setConfirmed(false);
   };
 
-  // -------- Rendering --------
+  const totalSteps = 4;
+
   return (
     <div className="public-shell">
       <img src={HERO_BG} alt="" className="fixed inset-0 h-full w-full object-cover opacity-30" style={{ zIndex: 0 }} />
       <div className="fixed inset-0 bg-black/40" style={{ zIndex: 0 }} />
 
       <div className="relative z-10 min-h-screen flex flex-col">
-        {/* Top bar */}
         <header className="px-6 md:px-12 py-6 flex items-center justify-between">
           <div>
             <div className="text-[10px] font-mono uppercase tracking-[0.25em] text-white/50">{t("book.by")}</div>
@@ -109,10 +117,9 @@ export default function PublicBooking() {
 
         <div className="flex-1 flex items-center justify-center px-4 md:px-10 pb-10">
           <div className="glass w-full max-w-3xl p-6 md:p-12 relative" data-testid="public-wizard">
-            {/* Progress */}
             {!confirmed && (
               <div className="flex items-center gap-2 mb-8">
-                {[1, 2, 3, 4].map((s) => (
+                {Array.from({ length: totalSteps }, (_, i) => i + 1).map((s) => (
                   <div key={s} className="flex-1 h-[2px] rounded-full transition-colors"
                        style={{ backgroundColor: s <= step ? "#D97706" : "rgba(255,255,255,0.15)" }} />
                 ))}
@@ -128,7 +135,7 @@ export default function PublicBooking() {
                   <p className="text-white/70 mt-4 max-w-md mx-auto">{t("book.thanks_body")}</p>
                   <div className="mt-6 inline-flex flex-col items-center gap-2 text-white/80 text-sm font-mono">
                     <div><Check size={14} className="inline mr-1 text-emerald-400" /> {selectedDate} · {selectedTime}</div>
-                    <div>{persons} {t("book.persons_label").toLowerCase()}</div>
+                    <div>{persons} {t("book.persons_label").toLowerCase()} · {t(`book.service_${service}`)}</div>
                   </div>
                   <button onClick={resetAll} data-testid="book-new" className="pill-btn mt-8">
                     {t("book.new_reservation")}
@@ -136,8 +143,52 @@ export default function PublicBooking() {
                 </motion.div>
               ) : step === 1 ? (
                 <motion.div key="s1" {...stepAnim} className="text-center">
-                  <div className="text-[10px] font-mono uppercase tracking-[0.25em] text-amber-400">01 / 04</div>
+                  <div className="text-[10px] font-mono uppercase tracking-[0.25em] text-amber-400">01 / 0{totalSteps}</div>
+                  <h2 className="serif-title text-4xl md:text-5xl mt-3">{t("book.step_service")}</h2>
+
+                  <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg mx-auto">
+                    {["lunch", "dinner"].map((sv) => {
+                      const offered = servicesOffered.includes(sv);
+                      const isSel = service === sv;
+                      const Icon = sv === "lunch" ? Sun : Moon;
+                      return (
+                        <button
+                          key={sv}
+                          data-testid={`service-${sv}`}
+                          disabled={!offered}
+                          onClick={() => setService(sv)}
+                          className={`p-8 rounded-2xl border transition-all ${
+                            !offered ? "opacity-25 cursor-not-allowed border-white/10"
+                              : isSel
+                                ? "bg-amber-600 text-black border-amber-600 scale-[1.02]"
+                                : "border-white/15 hover:border-white/40 hover:bg-white/5"
+                          }`}
+                        >
+                          <Icon size={36} className="mx-auto mb-3" strokeWidth={1.4} />
+                          <div className="serif-title text-3xl">
+                            {t(`book.service_${sv}`)}
+                          </div>
+                          {!offered && (
+                            <div className="text-[10px] font-mono uppercase tracking-widest mt-2 opacity-60">
+                              non disponibile
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mt-10 flex justify-center">
+                    <button data-testid="step1-next" onClick={() => setStep(2)} disabled={!service} className="pill-btn">
+                      {t("book.next")} <ChevronRight size={16} />
+                    </button>
+                  </div>
+                </motion.div>
+              ) : step === 2 ? (
+                <motion.div key="s2" {...stepAnim} className="text-center">
+                  <div className="text-[10px] font-mono uppercase tracking-[0.25em] text-amber-400">02 / 0{totalSteps}</div>
                   <h2 className="serif-title text-4xl md:text-5xl mt-3">{t("book.step_persons")}</h2>
+
                   <div className="mt-10 flex items-center justify-center gap-6">
                     <button data-testid="persons-minus" onClick={() => setPersons(Math.max(1, persons - 1))}
                             className="w-14 h-14 rounded-full border border-white/15 hover:bg-white/10 flex items-center justify-center transition-colors">
@@ -163,106 +214,113 @@ export default function PublicBooking() {
                     ))}
                   </div>
                   <p className="text-xs text-white/40 mt-6">{t("book.large_party_hint")}</p>
-                  <div className="mt-10 flex justify-center">
-                    <button data-testid="step1-next" onClick={() => setStep(2)} className="pill-btn">
-                      {t("book.next")} <ChevronRight size={16} />
-                    </button>
-                  </div>
-                </motion.div>
-              ) : step === 2 ? (
-                <motion.div key="s2" {...stepAnim}>
-                  <div className="text-[10px] font-mono uppercase tracking-[0.25em] text-amber-400 text-center">02 / 04</div>
-                  <h2 className="serif-title text-4xl md:text-5xl mt-3 text-center">{t("book.step_date")}</h2>
-
-                  <div className="flex items-center justify-between mt-8 max-w-md mx-auto">
-                    <button data-testid="month-prev" onClick={() => { if (month === 1) { setMonth(12); setYear(year-1); } else setMonth(month-1); }}
-                            className="w-10 h-10 rounded-full border border-white/15 hover:bg-white/10 flex items-center justify-center">
-                      <ChevronLeft size={16} />
-                    </button>
-                    <div className="serif-title text-xl">{MONTH_NAMES[lang][month-1]} {year}</div>
-                    <button data-testid="month-next" onClick={() => { if (month === 12) { setMonth(1); setYear(year+1); } else setMonth(month+1); }}
-                            className="w-10 h-10 rounded-full border border-white/15 hover:bg-white/10 flex items-center justify-center">
-                      <ChevronRight size={16} />
-                    </button>
-                  </div>
-
-                  <div className="max-w-md mx-auto mt-6">
-                    <div className="grid grid-cols-7 gap-1 mb-2 text-center">
-                      {WEEKDAY_NAMES[lang].map((n) => (
-                        <div key={n} className="text-[10px] font-mono uppercase tracking-widest text-white/40">{n.slice(0,3)}</div>
-                      ))}
-                    </div>
-                    <div className="grid grid-cols-7 gap-1">
-                      {(() => {
-                        const daysInMonth = new Date(year, month, 0).getDate();
-                        const first = (new Date(year, month-1, 1).getDay() + 6) % 7;
-                        const out = [];
-                        for (let i = 0; i < first; i++) out.push(<div key={`e${i}`} />);
-                        for (let d = 1; d <= daysInMonth; d++) {
-                          const ds = iso(year, month, d);
-                          const info = monthAvail[ds];
-                          const disabled = !info?.open || !info?.has_availability;
-                          const isSel = selectedDate === ds;
-                          out.push(
-                            <button key={ds} data-testid={`day-${ds}`}
-                                    disabled={disabled}
-                                    onClick={() => setSelectedDate(ds)}
-                                    className={`aspect-square rounded-lg text-sm transition-colors ${
-                                      disabled ? "opacity-25 cursor-not-allowed line-through"
-                                        : isSel ? "bg-amber-600 text-black"
-                                        : "bg-white/5 hover:bg-white/10 text-white"
-                                    }`}>
-                              {d}
-                            </button>
-                          );
-                        }
-                        return out;
-                      })()}
-                    </div>
-                  </div>
 
                   <div className="mt-10 flex justify-between">
                     <button data-testid="step2-back" onClick={() => setStep(1)} className="pill-ghost">
                       <ChevronLeft size={16} /> {t("book.back")}
                     </button>
-                    <button data-testid="step2-next" onClick={() => setStep(3)} disabled={!selectedDate} className="pill-btn">
+                    <button data-testid="step2-next" onClick={() => setStep(3)} className="pill-btn">
                       {t("book.next")} <ChevronRight size={16} />
                     </button>
                   </div>
                 </motion.div>
               ) : step === 3 ? (
                 <motion.div key="s3" {...stepAnim}>
-                  <div className="text-[10px] font-mono uppercase tracking-[0.25em] text-amber-400 text-center">03 / 04</div>
-                  <h2 className="serif-title text-4xl md:text-5xl mt-3 text-center">{t("book.step_time")}</h2>
-                  <p className="text-white/60 text-center mt-2 font-mono text-sm">{selectedDate} · {persons}p</p>
+                  <div className="text-[10px] font-mono uppercase tracking-[0.25em] text-amber-400 text-center">03 / 0{totalSteps}</div>
+                  <h2 className="serif-title text-4xl md:text-5xl mt-3 text-center">{t("book.step_datetime")}</h2>
+                  <p className="text-white/60 text-center mt-2 font-mono text-xs uppercase tracking-widest">
+                    {t(`book.service_${service}`)} · {persons}p
+                  </p>
 
-                  <div className="mt-8 min-h-[200px] flex flex-wrap justify-center gap-2 max-w-2xl mx-auto">
-                    {loadingSlots && <div className="text-white/40">{t("common.loading")}</div>}
-                    {!loadingSlots && slots.length === 0 && (
-                      <div className="text-white/50 text-center py-10">{t("book.no_slots")}</div>
-                    )}
-                    {!loadingSlots && slots.map((s) => (
-                      <button key={s.time} data-testid={`slot-${s.time}`}
-                              disabled={!s.available}
-                              onClick={() => setSelectedTime(s.time)}
-                              className={`slot-chip ${selectedTime === s.time ? "selected" : ""}`}>
-                        {s.time}
-                      </button>
-                    ))}
+                  <div className="grid md:grid-cols-2 gap-6 mt-8">
+                    {/* Calendar */}
+                    <div>
+                      <div className="flex items-center justify-between mb-4">
+                        <button data-testid="month-prev" onClick={() => { if (month === 1) { setMonth(12); setYear(year-1); } else setMonth(month-1); }}
+                                className="w-9 h-9 rounded-full border border-white/15 hover:bg-white/10 flex items-center justify-center">
+                          <ChevronLeft size={14} />
+                        </button>
+                        <div className="serif-title text-lg">{MONTH_NAMES[lang][month-1]} {year}</div>
+                        <button data-testid="month-next" onClick={() => { if (month === 12) { setMonth(1); setYear(year+1); } else setMonth(month+1); }}
+                                className="w-9 h-9 rounded-full border border-white/15 hover:bg-white/10 flex items-center justify-center">
+                          <ChevronRight size={14} />
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-7 gap-1 mb-2 text-center">
+                        {WEEKDAY_NAMES[lang].map((n) => (
+                          <div key={n} className="text-[10px] font-mono uppercase tracking-widest text-white/40">{n.slice(0,3)}</div>
+                        ))}
+                      </div>
+                      <div className="grid grid-cols-7 gap-1">
+                        {(() => {
+                          const daysInMonth = new Date(year, month, 0).getDate();
+                          const first = (new Date(year, month-1, 1).getDay() + 6) % 7;
+                          const out = [];
+                          for (let i = 0; i < first; i++) out.push(<div key={`e${i}`} />);
+                          for (let d = 1; d <= daysInMonth; d++) {
+                            const ds = iso(year, month, d);
+                            const info = monthAvail[ds];
+                            const disabled = !info?.open || !info?.has_availability;
+                            const isSel = selectedDate === ds;
+                            out.push(
+                              <button key={ds} data-testid={`day-${ds}`}
+                                      disabled={disabled}
+                                      onClick={() => setSelectedDate(ds)}
+                                      className={`aspect-square rounded-lg text-sm transition-colors ${
+                                        disabled ? "opacity-25 cursor-not-allowed line-through"
+                                          : isSel ? "bg-amber-600 text-black"
+                                          : "bg-white/5 hover:bg-white/10 text-white"
+                                      }`}>
+                                {d}
+                              </button>
+                            );
+                          }
+                          return out;
+                        })()}
+                      </div>
+                    </div>
+
+                    {/* Slots */}
+                    <div>
+                      <div className="text-[10px] font-mono uppercase tracking-widest text-white/40 mb-3">
+                        Orario disponibile
+                      </div>
+                      {!selectedDate ? (
+                        <div className="text-white/40 text-sm py-10 text-center border border-dashed border-white/10 rounded-lg">
+                          {t("book.pick_date_first")}
+                        </div>
+                      ) : loadingSlots ? (
+                        <div className="text-white/40 text-sm py-6 text-center">{t("common.loading")}</div>
+                      ) : slots.length === 0 ? (
+                        <div className="text-white/50 text-sm py-10 text-center">{t("book.no_slots")}</div>
+                      ) : (
+                        <div className="flex flex-wrap gap-2 max-h-[280px] overflow-y-auto pr-1">
+                          {slots.map((s) => (
+                            <button key={s.time} data-testid={`slot-${s.time}`}
+                                    disabled={!s.available}
+                                    onClick={() => setSelectedTime(s.time)}
+                                    className={`slot-chip ${selectedTime === s.time ? "selected" : ""}`}>
+                              {s.time}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div className="mt-10 flex justify-between">
                     <button data-testid="step3-back" onClick={() => setStep(2)} className="pill-ghost">
                       <ChevronLeft size={16} /> {t("book.back")}
                     </button>
-                    <button data-testid="step3-next" onClick={() => setStep(4)} disabled={!selectedTime} className="pill-btn">
+                    <button data-testid="step3-next" onClick={() => setStep(4)} disabled={!selectedDate || !selectedTime} className="pill-btn">
                       {t("book.next")} <ChevronRight size={16} />
                     </button>
                   </div>
                 </motion.div>
               ) : (
                 <motion.div key="s4" {...stepAnim}>
-                  <div className="text-[10px] font-mono uppercase tracking-[0.25em] text-amber-400 text-center">04 / 04</div>
+                  <div className="text-[10px] font-mono uppercase tracking-[0.25em] text-amber-400 text-center">04 / 0{totalSteps}</div>
                   <h2 className="serif-title text-4xl md:text-5xl mt-3 text-center">{t("book.step_contact")}</h2>
 
                   <div className="mt-8 max-w-md mx-auto space-y-4">
@@ -279,12 +337,15 @@ export default function PublicBooking() {
                     <div>
                       <label className="text-[10px] font-mono uppercase tracking-widest text-white/50 mb-1 block">{t("common.phone")}</label>
                       <input data-testid="contact-phone" value={contact.phone} onChange={(e) => setContact({ ...contact, phone: e.target.value })}
+                             placeholder="+39 …"
                              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-amber-600 transition-colors" />
                     </div>
                     <div>
                       <label className="text-[10px] font-mono uppercase tracking-widest text-white/50 mb-1 block">{t("book.optional_message")}</label>
-                      <textarea data-testid="contact-message" rows={2} value={contact.message} onChange={(e) => setContact({ ...contact, message: e.target.value })}
-                                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-amber-600 transition-colors" />
+                      <textarea data-testid="contact-message" rows={3} value={contact.message}
+                                onChange={(e) => setContact({ ...contact, message: e.target.value })}
+                                placeholder={t("book.message_placeholder")}
+                                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-white/30 focus:border-amber-600 transition-colors" />
                     </div>
                     <label className="flex items-start gap-2 text-sm text-white/70">
                       <input data-testid="contact-terms" type="checkbox" checked={contact.terms}
@@ -292,7 +353,8 @@ export default function PublicBooking() {
                              className="mt-1 accent-amber-600" />
                       <span>{t("book.terms")}</span>
                     </label>
-                    <div className="text-xs font-mono text-white/50 pt-2 border-t border-white/10">
+                    <div className="text-xs font-mono text-white/50 pt-2 border-t border-white/10 space-y-1">
+                      <div>{t(`book.service_${service}`)}</div>
                       <div>{selectedDate} · {selectedTime}</div>
                       <div>{persons} {t("book.persons_label").toLowerCase()}</div>
                     </div>

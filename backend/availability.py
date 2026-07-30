@@ -25,27 +25,49 @@ def weekday_from_date(date_str: str) -> int:
 
 
 def pick_opening_hour(
-    date_str: str, opening_hours: List[dict]
+    date_str: str, opening_hours: List[dict], service: Optional[str] = None,
 ) -> Optional[dict]:
     """Given all opening_hours for a restaurant, pick the one matching date_str.
 
     Priority: specific_date match wins over weekday match. Returns None if the
     day is closed (either no match, or a specific_date exception with is_closed).
+    If `service` is provided ("lunch"/"dinner"/"other"), restrict to that service.
     """
+    def match_service(oh):
+        if service is None:
+            return True
+        return (oh.get("service_type") or "").lower() == service.lower()
+
     # First: check specific date exceptions
     for oh in opening_hours:
-        if oh.get("specific_date") == date_str:
+        if oh.get("specific_date") == date_str and match_service(oh):
             if oh.get("is_closed"):
                 return None
             return oh
     # Then: weekday rule
     wd = weekday_from_date(date_str)
     for oh in opening_hours:
-        if oh.get("weekday") == wd and not oh.get("specific_date"):
+        if oh.get("weekday") == wd and not oh.get("specific_date") and match_service(oh):
             if oh.get("is_closed"):
                 return None
             return oh
     return None
+
+
+def services_available_on(date_str: str, opening_hours: List[dict]) -> List[str]:
+    """Return the list of distinct service_types open on that date (e.g. ['lunch','dinner'])."""
+    wd = weekday_from_date(date_str)
+    # specific_date exception takes precedence: if any exception matches the date and is_closed, day is closed
+    date_exceptions = [oh for oh in opening_hours if oh.get("specific_date") == date_str]
+    if date_exceptions and any(x.get("is_closed") for x in date_exceptions):
+        return []
+    if date_exceptions:
+        return sorted({(x.get("service_type") or "other") for x in date_exceptions})
+    return sorted({
+        (oh.get("service_type") or "other")
+        for oh in opening_hours
+        if oh.get("weekday") == wd and not oh.get("specific_date") and not oh.get("is_closed")
+    })
 
 
 def duration_for_persons(oh: dict, persons: int) -> int:

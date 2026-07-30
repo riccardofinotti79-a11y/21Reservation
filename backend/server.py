@@ -27,7 +27,8 @@ from auth import (  # noqa: E402
 )
 from availability import (  # noqa: E402
     auto_assign_table, duration_for_persons, find_available_tables,
-    generate_slots, hhmm_to_minutes, pick_opening_hour, slot_within_limits,
+    generate_slots, hhmm_to_minutes, pick_opening_hour, services_available_on,
+    slot_within_limits,
 )
 from email_service import (  # noqa: E402
     booking_confirmation_html, send_email, staff_notification_html,
@@ -538,11 +539,11 @@ async def suggest_tables(
 
 # ==================== PUBLIC BOOKING ====================
 @api.get("/public/{subdomain}/availability/day", response_model=DayAvailability)
-async def public_day_availability(subdomain: str, date: str, persons: int):
+async def public_day_availability(subdomain: str, date: str, persons: int, service: Optional[str] = None):
     r = await _get_restaurant_by_subdomain(subdomain)
     rid = r["id"]
     ohs = await db.opening_hours.find({"restaurant_id": rid}, NO_ID).to_list(500)
-    oh = pick_opening_hour(date, ohs)
+    oh = pick_opening_hour(date, ohs, service=service)
     if not oh:
         return DayAvailability(date=date, open=False, slots=[])
     duration = duration_for_persons(oh, persons)
@@ -569,7 +570,7 @@ async def public_day_availability(subdomain: str, date: str, persons: int):
 
 
 @api.get("/public/{subdomain}/availability/month")
-async def public_month_availability(subdomain: str, year: int, month: int, persons: int):
+async def public_month_availability(subdomain: str, year: int, month: int, persons: int, service: Optional[str] = None):
     """Returns a list of dates with any availability, for the given month."""
     r = await _get_restaurant_by_subdomain(subdomain)
     rid = r["id"]
@@ -587,7 +588,7 @@ async def public_month_availability(subdomain: str, year: int, month: int, perso
         if d < today:
             output.append({"date": d.isoformat(), "open": False, "has_availability": False})
             continue
-        oh = pick_opening_hour(d.isoformat(), ohs)
+        oh = pick_opening_hour(d.isoformat(), ohs, service=service)
         if not oh:
             output.append({"date": d.isoformat(), "open": False, "has_availability": False})
             continue
@@ -604,6 +605,18 @@ async def public_month_availability(subdomain: str, year: int, month: int, perso
     return {"days": output}
 
 
+@api.get("/public/{subdomain}/services")
+async def public_services(subdomain: str, days_ahead: int = 60):
+    """Returns which services (lunch/dinner) are offered by this restaurant,
+    based on their weekly opening hours."""
+    r = await _get_restaurant_by_subdomain(subdomain)
+    rid = r["id"]
+    ohs = await db.opening_hours.find({"restaurant_id": rid}, NO_ID).to_list(500)
+    weekly = [oh for oh in ohs if not oh.get("specific_date") and not oh.get("is_closed")]
+    services = sorted({(oh.get("service_type") or "other") for oh in weekly})
+    return {"services": services}
+
+
 @api.post("/public/{subdomain}/book")
 async def public_create_booking(subdomain: str, body: BookingCreatePublic):
     if not body.accept_terms:
@@ -611,7 +624,7 @@ async def public_create_booking(subdomain: str, body: BookingCreatePublic):
     r = await _get_restaurant_by_subdomain(subdomain)
     rid = r["id"]
     ohs = await db.opening_hours.find({"restaurant_id": rid}, NO_ID).to_list(500)
-    oh = pick_opening_hour(body.date, ohs)
+    oh = pick_opening_hour(body.date, ohs, service=body.service)
     if not oh:
         raise HTTPException(400, "Ristorante chiuso in quella data")
 
@@ -792,6 +805,36 @@ async def update_restaurant(body: RestaurantUpdate, cur=Depends(get_current_user
         projection=NO_ID, return_document=True,
     )
     return Restaurant(**r)
+
+
+# ==================== WHATSAPP ====================
+@api.get("/whatsapp/status")
+async def whatsapp_status(cur=Depends(get_current_user)):
+    from whatsapp_service import whatsapp_is_configured
+    r = await _get_restaurant(cur["restaurant_id"])
+    return {
+        "enabled": bool(r.get("whatsapp_enabled")),
+        "provider": r.get("whatsapp_provider"),
+        "configured": whatsapp_is_configured(r),
+    }
+
+
+@api.post("/whatsapp/test")
+async def whatsapp_test(payload: dict, cur=Depends(get_current_user)):
+    if cur["role"] != "owner":
+        raise HTTPException(403, "Owner role required")
+    to = (payload or {}).get("to") or ""
+    if not to:
+        raise HTTPException(400, "Manca il numero destinatario")
+    r = await _get_restaurant(cur["restaurant_id"])
+    from whatsapp_service import whatsapp_is_configured
+    if not whatsapp_is_configured(r):
+        raise HTTPException(400, "WhatsApp non configurato: verifica provider e credenziali")
+    msg = (payload or {}).get("message") or f"Test WhatsApp da {r['name']} — funziona!"
+    ok = await send_whatsapp(r, to, msg)
+    if not ok:
+        raise HTTPException(502, "Invio fallito: controlla i log del server per dettagli")
+    return {"ok": True}
 
 
 # ==================== PAYMENTS (DEPOSITS) ====================
