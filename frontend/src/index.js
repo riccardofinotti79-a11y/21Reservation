@@ -16,11 +16,15 @@ import BookingsList from "./pages/BookingsList";
 import BookingsCalendar from "./pages/BookingsCalendar";
 import BookingsTimeline from "./pages/BookingsTimeline";
 import Tables from "./pages/Tables";
+import FloorPlan from "./pages/FloorPlan";
 import OpeningHours from "./pages/OpeningHours";
 import Customers from "./pages/Customers";
 import CustomerDetail from "./pages/CustomerDetail";
 import Reports from "./pages/Reports";
+import Settings from "./pages/Settings";
 import PublicBooking from "./pages/PublicBooking";
+import PublicCancel from "./pages/PublicCancel";
+import PaymentResult from "./pages/PaymentResult";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 60_000, refetchOnWindowFocus: false } },
@@ -36,6 +40,9 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/book/:subdomain" element={<PublicBooking />} />
+      <Route path="/cancel/:token" element={<PublicCancel />} />
+      <Route path="/payment/success" element={<PaymentResult mode="success" />} />
+      <Route path="/payment/cancel" element={<PaymentResult mode="cancel" />} />
       <Route path="/login" element={<Login />} />
       <Route
         path="/"
@@ -50,10 +57,12 @@ function AppRoutes() {
         <Route path="bookings/calendar" element={<BookingsCalendar />} />
         <Route path="bookings/timeline" element={<BookingsTimeline />} />
         <Route path="tables" element={<Tables />} />
+        <Route path="floorplan" element={<FloorPlan />} />
         <Route path="hours" element={<OpeningHours />} />
         <Route path="customers" element={<Customers />} />
         <Route path="customers/:id" element={<CustomerDetail />} />
         <Route path="reports" element={<Reports />} />
+        <Route path="settings" element={<Settings />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

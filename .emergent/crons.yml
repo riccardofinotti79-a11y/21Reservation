@@ -1,0 +1,9 @@
+crons:
+  - name: rem-24h
+    description: "Sends the 24h reminder email (and WhatsApp if configured) to every guest with a booking tomorrow"
+    cron: "0 10 * * *"
+    timezone: "Europe/Rome"
+    endpoint: "{{BASE_URL}}/api/cron/send-reminders"
+    method: POST
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    enabled: true

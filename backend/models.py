@@ -36,7 +36,38 @@ class Restaurant(BaseModel):
     language: str = "it"
     currency: str = "EUR"
     timezone: str = "Europe/Rome"
+    # Deposit / large group Stripe config
+    deposit_enabled: bool = False
+    deposit_threshold_persons: int = 8
+    deposit_amount_per_person: float = 20.0  # EUR
+    # Revenue estimation
+    avg_ticket_per_guest: float = 55.0
+    # Reminder / WhatsApp config
+    reminder_enabled: bool = True
+    reminder_lead_hours: int = 24
+    whatsapp_enabled: bool = False
+    whatsapp_provider: Optional[str] = None  # "twilio" | "meta" | null
+    whatsapp_from: Optional[str] = None
     created_at: datetime = Field(default_factory=utc_now)
+
+
+class RestaurantUpdate(BaseModel):
+    name: Optional[str] = None
+    address: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[EmailStr] = None
+    language: Optional[str] = None
+    currency: Optional[str] = None
+    timezone: Optional[str] = None
+    deposit_enabled: Optional[bool] = None
+    deposit_threshold_persons: Optional[int] = None
+    deposit_amount_per_person: Optional[float] = None
+    avg_ticket_per_guest: Optional[float] = None
+    reminder_enabled: Optional[bool] = None
+    reminder_lead_hours: Optional[int] = None
+    whatsapp_enabled: Optional[bool] = None
+    whatsapp_provider: Optional[str] = None
+    whatsapp_from: Optional[str] = None
 
 
 class User(BaseModel):
@@ -239,6 +270,14 @@ class Booking(BaseModel):
     guest_message: Optional[str] = None
     internal_note: Optional[str] = None
     status_history: List[StatusChange] = []
+    # Deposit tracking
+    deposit_required: bool = False
+    deposit_amount: float = 0.0
+    deposit_status: Optional[str] = None  # None | "pending" | "paid" | "failed"
+    deposit_session_id: Optional[str] = None
+    # Reminders
+    reminder_sent_at: Optional[str] = None
+    cancel_token: Optional[str] = None
     created_at: datetime = Field(default_factory=utc_now)
 
 
@@ -268,6 +307,7 @@ class BookingCreatePublic(BaseModel):
     customer_phone: str
     guest_message: Optional[str] = None
     accept_terms: bool = True
+    origin_url: Optional[str] = None  # for Stripe deposit redirect URLs
 
 
 class BookingUpdate(BaseModel):

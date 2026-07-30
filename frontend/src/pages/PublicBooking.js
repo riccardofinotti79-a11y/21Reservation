@@ -68,12 +68,17 @@ export default function PublicBooking() {
     if (!contact.terms) { toast.error("Devi accettare i termini"); return; }
     setSubmitting(true);
     try {
-      await api.post(`/public/${subdomain}/book`, {
+      const { data } = await api.post(`/public/${subdomain}/book`, {
         date: selectedDate, time: selectedTime, persons,
         customer_name: contact.name, customer_email: contact.email,
         customer_phone: contact.phone, guest_message: contact.message,
         accept_terms: true,
+        origin_url: window.location.origin,
       });
+      if (data?.checkout_url) {
+        window.location.href = data.checkout_url;
+        return;
+      }
       setConfirmed(true);
     } catch (err) {
       toast.error(err?.response?.data?.detail || "Errore");

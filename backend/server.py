@@ -19,8 +19,8 @@ from models import (  # noqa: E402
     Area, AreaCreate, Booking, BookingCreatePublic, BookingCreateStaff,
     BookingStatusUpdate, BookingUpdate, Customer, CustomerCreate, CustomerUpdate,
     DayAvailability, LoginRequest, LoginResponse, OpeningHour, OpeningHourCreate,
-    PublicRestaurantInfo, Restaurant, SlotAvailability, StatusChange, Table,
-    TableCreate, TableUpdate, User, UserPublic, new_id, utc_now,
+    PublicRestaurantInfo, Restaurant, RestaurantUpdate, SlotAvailability,
+    StatusChange, Table, TableCreate, TableUpdate, User, UserPublic, new_id, utc_now,
 )
 from auth import (  # noqa: E402
     create_access_token, get_current_user, hash_password, verify_password,
@@ -32,7 +32,15 @@ from availability import (  # noqa: E402
 from email_service import (  # noqa: E402
     booking_confirmation_html, send_email, staff_notification_html,
 )
+from payments import (  # noqa: E402
+    construct_event, create_deposit_checkout, retrieve_session,
+)
+from reminders import send_reminders_for_restaurant  # noqa: E402
 from seed import seed_demo  # noqa: E402
+from whatsapp_service import send_whatsapp  # noqa: E402
+
+import secrets as _secrets  # noqa: E402
+from fastapi import Request  # noqa: E402
 
 mongo_url = os.environ["MONGO_URL"]
 client = AsyncIOMotorClient(mongo_url)
@@ -596,7 +604,7 @@ async def public_month_availability(subdomain: str, year: int, month: int, perso
     return {"days": output}
 
 
-@api.post("/public/{subdomain}/book", response_model=Booking)
+@api.post("/public/{subdomain}/book")
 async def public_create_booking(subdomain: str, body: BookingCreatePublic):
     if not body.accept_terms:
         raise HTTPException(400, "Devi accettare i termini")
@@ -627,6 +635,20 @@ async def public_create_booking(subdomain: str, body: BookingCreatePublic):
     # Customer
     customer = await _find_or_create_customer(rid, body.customer_name, body.customer_email, body.customer_phone)
 
+    # Deposit rule
+    deposit_required = bool(
+        r.get("deposit_enabled")
+        and body.persons >= int(r.get("deposit_threshold_persons", 8))
+        and float(r.get("deposit_amount_per_person", 0)) > 0
+    )
+    deposit_amount = 0.0
+    initial_status = "accepted"
+    deposit_status = None
+    if deposit_required:
+        deposit_amount = round(body.persons * float(r.get("deposit_amount_per_person", 0)), 2)
+        initial_status = "pending"
+        deposit_status = "pending"
+
     booking = Booking(
         restaurant_id=rid,
         customer_id=customer["id"],
@@ -634,32 +656,68 @@ async def public_create_booking(subdomain: str, body: BookingCreatePublic):
         time=body.time,
         duration_minutes=duration,
         persons=body.persons,
-        status="accepted",
+        status=initial_status,
         source="online",
         table_ids=[assigned],
         guest_message=body.guest_message,
-        status_history=[StatusChange(status="accepted")],
+        status_history=[StatusChange(status=initial_status)],
+        deposit_required=deposit_required,
+        deposit_amount=deposit_amount,
+        deposit_status=deposit_status,
+        cancel_token=_secrets.token_urlsafe(24),
     )
     doc = _serialize(booking.model_dump())
     await db.bookings.insert_one(doc)
     await _recompute_customer_metrics(customer["id"])
 
-    # Emails (best-effort, do not fail booking on email issues)
-    try:
-        html_guest = booking_confirmation_html(
-            r["name"], body.customer_name, body.date, body.time, body.persons, "accepted", r.get("address"),
-        )
-        await send_email(body.customer_email, f"Prenotazione confermata — {r['name']}", html_guest)
-        if r.get("email"):
-            html_staff = staff_notification_html(
-                r["name"], body.customer_name, body.customer_phone, body.customer_email,
-                body.date, body.time, body.persons, body.guest_message,
+    # If deposit required — create Stripe Checkout and return the URL
+    checkout_url = None
+    if deposit_required and body.origin_url:
+        try:
+            checkout = create_deposit_checkout(
+                origin_url=body.origin_url,
+                booking_id=booking.id,
+                amount_eur=deposit_amount,
+                currency=r.get("currency", "EUR"),
+                guest_email=body.customer_email,
+                restaurant_name=r["name"],
             )
-            await send_email(r["email"], f"Nuova prenotazione online — {body.customer_name}", html_staff)
-    except Exception as e:
-        logger.warning(f"Email best-effort failed: {e}")
+            await db.bookings.update_one(
+                {"id": booking.id},
+                {"$set": {"deposit_session_id": checkout["session_id"]}},
+            )
+            checkout_url = checkout["url"]
+        except Exception as e:
+            logger.error(f"Stripe checkout create failed: {e}")
+            # Roll back to accepted so booking still stands
+            await db.bookings.update_one(
+                {"id": booking.id},
+                {"$set": {"status": "accepted", "deposit_required": False, "deposit_status": None}},
+            )
 
-    return booking
+    # Confirmation email (only if not awaiting deposit)
+    if not deposit_required:
+        try:
+            html_guest = booking_confirmation_html(
+                r["name"], body.customer_name, body.date, body.time, body.persons, "accepted", r.get("address"),
+            )
+            await send_email(body.customer_email, f"Prenotazione confermata — {r['name']}", html_guest)
+            if r.get("email"):
+                html_staff = staff_notification_html(
+                    r["name"], body.customer_name, body.customer_phone, body.customer_email,
+                    body.date, body.time, body.persons, body.guest_message,
+                )
+                await send_email(r["email"], f"Nuova prenotazione online — {body.customer_name}", html_staff)
+        except Exception as e:
+            logger.warning(f"Email best-effort failed: {e}")
+
+    # Reload booking (may have deposit_session_id)
+    booking_doc = await db.bookings.find_one({"id": booking.id}, NO_ID)
+    return {
+        "booking": Booking(**booking_doc).model_dump(),
+        "checkout_url": checkout_url,
+        "deposit_required": deposit_required,
+    }
 
 
 # ==================== REPORTS ====================
@@ -670,6 +728,7 @@ async def reports_summary(
     cur=Depends(get_current_user),
 ):
     docs = await _get_bookings_range(cur["restaurant_id"], date_from, date_to)
+    restaurant = await _get_restaurant(cur["restaurant_id"])
     active = {"pending", "accepted", "seated"}
     per_day = {}
     for d in docs:
@@ -707,6 +766,9 @@ async def reports_summary(
         "total_no_show": sum(v["no_show"] for v in per_day.values()),
         "total_cancelled": sum(v["cancelled"] for v in per_day.values()),
         "estimated_occupancy_pct": occupancy,
+        "avg_ticket_per_guest": float(restaurant.get("avg_ticket_per_guest", 0) or 0),
+        "estimated_revenue": round(total_guests * float(restaurant.get("avg_ticket_per_guest", 0) or 0), 2),
+        "currency": restaurant.get("currency", "EUR"),
     }
 
 
@@ -714,6 +776,158 @@ async def reports_summary(
 @api.get("/")
 async def root():
     return {"service": "21Reservation", "status": "ok"}
+
+
+# ==================== SETTINGS ====================
+@api.patch("/restaurant", response_model=Restaurant)
+async def update_restaurant(body: RestaurantUpdate, cur=Depends(get_current_user)):
+    if cur["role"] != "owner":
+        raise HTTPException(403, "Owner role required")
+    upd = {k: v for k, v in body.model_dump(exclude_unset=True).items() if v is not None}
+    if not upd:
+        r = await _get_restaurant(cur["restaurant_id"])
+        return Restaurant(**r)
+    r = await db.restaurants.find_one_and_update(
+        {"id": cur["restaurant_id"]}, {"$set": upd},
+        projection=NO_ID, return_document=True,
+    )
+    return Restaurant(**r)
+
+
+# ==================== PAYMENTS (DEPOSITS) ====================
+@api.get("/payments/status/{session_id}")
+async def payment_status(session_id: str):
+    """Public: poll deposit status."""
+    booking = await db.bookings.find_one({"deposit_session_id": session_id}, NO_ID)
+    if not booking:
+        raise HTTPException(404, "Session not found")
+    # Fallback: if pending, ask Stripe directly (webhook may be delayed)
+    if booking.get("deposit_status") != "paid":
+        try:
+            s = retrieve_session(session_id)
+            if s.payment_status == "paid" or s.status == "complete":
+                # idempotent update
+                await db.bookings.update_one(
+                    {"id": booking["id"], "deposit_status": {"$ne": "paid"}},
+                    {"$set": {"deposit_status": "paid", "status": "accepted"}},
+                )
+                booking = await db.bookings.find_one({"id": booking["id"]}, NO_ID)
+        except Exception as e:
+            logger.warning(f"Stripe status fetch failed: {e}")
+    return {
+        "session_id": session_id,
+        "deposit_status": booking.get("deposit_status"),
+        "booking_status": booking.get("status"),
+        "booking_id": booking["id"],
+    }
+
+
+@api.post("/stripe/webhook")
+async def stripe_webhook(request: Request):
+    payload = await request.body()
+    sig = request.headers.get("stripe-signature", "")
+    try:
+        event = construct_event(payload, sig)
+    except Exception as e:
+        logger.error(f"Webhook signature error: {e}")
+        raise HTTPException(400, "Invalid signature")
+    obj = event["data"]["object"]
+    et = event["type"]
+    if et in ("checkout.session.completed", "checkout.session.async_payment_succeeded"):
+        session_id = obj.get("id")
+        await db.bookings.update_one(
+            {"deposit_session_id": session_id, "deposit_status": {"$ne": "paid"}},
+            {"$set": {
+                "deposit_status": "paid",
+                "status": "accepted",
+                "status_history": [
+                    *(await db.bookings.find_one({"deposit_session_id": session_id}, NO_ID) or {}).get("status_history", []),
+                    {"status": "accepted", "at": utc_now().isoformat()},
+                ],
+            }},
+        )
+        # Best-effort email
+        b = await db.bookings.find_one({"deposit_session_id": session_id}, NO_ID)
+        if b:
+            r = await _get_restaurant(b["restaurant_id"])
+            c = await db.customers.find_one({"id": b["customer_id"]}, NO_ID)
+            if c and c.get("email"):
+                try:
+                    html = booking_confirmation_html(
+                        r["name"], c["name"], b["date"], b["time"], b["persons"], "accepted", r.get("address"),
+                    )
+                    await send_email(c["email"], f"Deposito ricevuto — {r['name']}", html)
+                except Exception:
+                    pass
+    elif et in ("checkout.session.expired", "checkout.session.async_payment_failed"):
+        await db.bookings.update_one(
+            {"deposit_session_id": obj.get("id")},
+            {"$set": {"deposit_status": "failed", "status": "cancelled"}},
+        )
+    return {"status": "ok"}
+
+
+# ==================== PUBLIC CANCEL BY TOKEN ====================
+@api.get("/public/cancel/{token}")
+async def public_get_cancel(token: str):
+    b = await db.bookings.find_one({"cancel_token": token}, NO_ID)
+    if not b:
+        raise HTTPException(404, "Not found")
+    r = await _get_restaurant(b["restaurant_id"])
+    c = await db.customers.find_one({"id": b["customer_id"]}, NO_ID)
+    return {
+        "restaurant_name": r["name"],
+        "date": b["date"],
+        "time": b["time"],
+        "persons": b["persons"],
+        "customer_name": c["name"] if c else "",
+        "status": b["status"],
+        "already_cancelled": b["status"] == "cancelled",
+    }
+
+
+@api.post("/public/cancel/{token}")
+async def public_do_cancel(token: str):
+    b = await db.bookings.find_one({"cancel_token": token}, NO_ID)
+    if not b:
+        raise HTTPException(404, "Not found")
+    if b["status"] == "cancelled":
+        return {"ok": True, "already": True}
+    history = b.get("status_history", []) or []
+    history.append({"status": "cancelled", "at": utc_now().isoformat()})
+    await db.bookings.update_one(
+        {"id": b["id"]},
+        {"$set": {"status": "cancelled", "status_history": history}},
+    )
+    await _recompute_customer_metrics(b["customer_id"])
+    return {"ok": True}
+
+
+# ==================== CRON: REMINDERS ====================
+@api.post("/cron/send-reminders")
+async def cron_send_reminders(request: Request):
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    auth = request.headers.get("authorization", "")
+    expected = os.environ.get("WEBHOOK_CRON_SECRET", "")
+    if not expected or not auth.startswith("Bearer ") or auth.split(" ", 1)[1] != expected:
+        raise HTTPException(401, "Unauthorized")
+    base_url = os.environ.get("PUBLIC_BASE_URL") or str(request.base_url).rstrip("/")
+    results = []
+    async for r in db.restaurants.find({}, NO_ID):
+        try:
+            res = await send_reminders_for_restaurant(db, r, base_url)
+            results.append(res)
+        except Exception as e:
+            logger.error(f"Reminder job failed for {r.get('id')}: {e}")
+    return {"ok": True, "restaurants": results}
+
+
+# ==================== FRONTEND CONFIG ====================
+@api.get("/config/public")
+async def public_config():
+    return {
+        "stripe_publishable_key": os.environ.get("STRIPE_PUBLISHABLE_KEY"),
+    }
 
 
 # Mount router

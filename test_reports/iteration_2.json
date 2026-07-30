@@ -1,0 +1,45 @@
+{
+  "summary": "Iteration 2 E2E testing on 21Reservation new features. Backend: 12/12 new pytest cases pass covering PATCH /restaurant (owner/staff RBAC), reports revenue fields, public booking with deposit → Stripe Checkout URL, payments/status polling, Stripe webhook invalid-signature rejection, public cancel-by-token GET/POST with idempotency, cron /send-reminders auth + delivery + idempotency, and PATCH /tables position persistence. Frontend: Owner Settings page renders all 11 required inputs (s-name..s-wa-enabled + settings-save), values persist on reload (avg=70, threshold=6, amount=25). Staff Settings shows 'Sola lettura' banner and hides settings-save. Reports shows 6 KPI cards including kpi-revenue with '2170 €' and Recharts ComposedChart rendered. Floor plan (/floorplan) — 3 area tabs (plan-area-*), 7 tables (plan-table-*), drag with 20px grid snap works, plan-save decrements counter to (0) and reload persists new position. Mobile viewport 400px: mobile-menu-toggle visible, sidebar hidden (x=-256), click hamburger → sidebar slides to x=0 with backdrop, clicking a nav link closes sidebar and navigates. Public wizard /book/demo with deposit_enabled + 8 persons redirects to checkout.stripe.com/c/pay/cs_test_… as expected. Public cancel flow: creating a small booking, opening /cancel/{token} renders restaurant name + date/time/persons/customer_name, clicking cancel-confirm shows 'Prenotazione disdetta' and reload maintains 'Prenotazione disdetta' (already_cancelled path).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/bookings/{id}", "issue": "No single-booking GET endpoint exists — only list endpoint /api/bookings supports filtering; tests must fetch the list and filter client-side. Minor DX issue, not a functional regression."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Reports", "issues": ["Recharts warns on initial mount: 'The width(-1) and height(-1) of chart should be greater than 0' — the ResponsiveContainer initializes before layout settles. Cosmetic (chart still renders correctly on re-flow), but noisy in console."]},
+      {"screen": "Settings (staff)", "issues": ["Staff can still see the 'Impostazioni' item in the sidebar and navigate to /settings. The page correctly shows read-only banner + hides save, but the nav link could be hidden for staff for stricter UX. Not a security issue (backend enforces owner-only PATCH → 403)."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration2.py",
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/iteration2_results.xml"
+  ],
+  "action_items": [
+    "(Optional) Add a proper GET /api/bookings/{id} endpoint for clients that only have a booking id.",
+    "(Optional) Investigate initial Recharts width(-1) warning on Reports page (set explicit min-height on ResponsiveContainer).",
+    "(Optional) Hide 'Impostazioni' nav item for staff role for cleaner UX."
+  ],
+  "critical_code_review_comments": [
+    "server.py is now 957 LOC (was 743 in iter1) — well past the 700-line threshold. Strongly recommend splitting into routers: auth.py, restaurant.py, tables.py, bookings.py, public.py, payments_router.py, cron.py, reports.py.",
+    "public_create_booking rollback on Stripe failure resets deposit_required=False but does not undo the deposit_amount and status_history changes. Consider a full transactional reset.",
+    "stripe_webhook builds updated status_history via an extra find_one call inside $set which is racy and non-atomic — could double-append on concurrent webhooks. Consider using $push on status_history with a de-dup guard.",
+    "reminders.py: send_reminders_for_restaurant marks reminder_sent_at even when both email and whatsapp sends failed silently. Consider only marking as sent when did_email OR did_wa is True, otherwise retry on next cron.",
+    "payments.py has hardcoded fallback 'sk_test_emergent' if STRIPE_SECRET_KEY missing — better to fail fast.",
+    "PATCH /restaurant uses exclude_unset=True but then also filters `if v is not None` — this prevents legitimately clearing whatsapp_provider/whatsapp_from to null via API. Consider dropping the None filter."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration2.py"
+  ],
+  "success_rate": {"backend": "100% (12/12 iteration-2 tests, + iter1 28/28 still passing)", "frontend": "100% (all 6 new features verified end-to-end)"},
+  "test_credentials": "owner@demo.com / demo1234 (owner); staff@demo.com / demo1234 (staff); Cron: Bearer 21r-cron-3f9e12c7ab6d84902fea7b1c5d8e0a4f; Public subdomain: demo",
+  "seed_data_creation": "None new — existing demo seed. Test file cleans up TEST_ bookings after each test. Some deposit-enabled state was toggled during tests; final state reset to deposit_enabled=false.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 2 tests live at /app/backend/tests/test_iteration2.py. Run: `cd /app/backend && python -m pytest tests/test_iteration2.py -v -n 0`. Correct FloorPlan testids are plan-area-{name} and plan-table-{name} (NOT area-tab-* or fp-table-*). Public wizard button chain: persons-quick-N → step1-next → day-{iso} → step2-next → slot-{HH:MM} → step3-next → contact-name/email/phone/terms → step4-submit. Mobile hamburger appears at <1024px width (Tailwind lg breakpoint). GET /api/bookings/{id} does NOT exist; use the list endpoint with date_from/date_to and filter by id client-side. Stripe redirect after step4-submit navigates the whole page to checkout.stripe.com — use page.expect_navigation.",
+  "rca_of_the_issue": "N/A — no blocking bugs found. All 6 iteration-2 features work as specified."
+}
