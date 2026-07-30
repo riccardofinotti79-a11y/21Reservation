@@ -1,0 +1,126 @@
+{
+  "theme": {
+    "strategy": "Hybrid",
+    "dashboard": "Light Theme (ARCHETYPE 4: SWISS & HIGH-CONTRAST). Goal: Data density, clarity, functional beauty for fast management.",
+    "public_page": "Dark Theme (ARCHETYPE 5: LUXURY). Goal: High visual impact, trust, emotional connection for high conversion."
+  },
+  "typography": {
+    "strategy": "The 'Old Money Tech' (SaaS/Fintech) - Serif for public elegance, clean sans for dashboard utility.",
+    "fonts": {
+      "public_headings": "Playfair Display, Cormorant Garamond, or Spectral",
+      "public_body": "Figtree, Inter, or IBM Plex Sans",
+      "dashboard_headings": "Cabinet Grotesk, Satoshi, or IBM Plex Sans",
+      "dashboard_body": "IBM Plex Sans, Inter, or Figtree",
+      "banned": ["Roboto", "Open Sans", "Lato for headings"]
+    },
+    "scale": {
+      "h1": "text-4xl sm:text-5xl lg:text-6xl tracking-tight leading-none",
+      "h2": "text-2xl sm:text-3xl lg:text-4xl tracking-tight",
+      "h3": "text-xl sm:text-2xl",
+      "h4": "text-lg sm:text-xl",
+      "body": "text-base leading-relaxed",
+      "labels": "text-xs tracking-[0.2em] uppercase font-bold"
+    }
+  },
+  "colors": {
+    "dashboard": {
+      "background": "#F8F9FA",
+      "surface": "#FFFFFF",
+      "text_primary": "#0A0A0A",
+      "text_secondary": "#52525B",
+      "border": "#E4E4E7",
+      "primary": "#18181B"
+    },
+    "public": {
+      "background": "#09090B",
+      "surface": "rgba(24, 24, 27, 0.7)",
+      "text_primary": "#FAFAFA",
+      "text_secondary": "#A1A1AA",
+      "border": "rgba(255, 255, 255, 0.1)",
+      "primary": "#D97706"
+    },
+    "status_badges": {
+      "pending": "bg-amber-100 text-amber-800 border border-amber-200",
+      "accepted": "bg-emerald-100 text-emerald-800 border border-emerald-200",
+      "seated": "bg-blue-100 text-blue-800 border border-blue-200",
+      "declined": "bg-red-100 text-red-800 border border-red-200",
+      "no_show": "bg-slate-200 text-slate-800 border border-slate-300",
+      "cancelled": "bg-rose-100 text-rose-800 border border-rose-200"
+    }
+  },
+  "visual_enhancers": {
+    "public": {
+      "surface": "GLASSMORPHISM (The 'Crystal' Variant). Use backdrop-blur-xl bg-black/60 with 1px border-white/10. Add backdrop-saturate-150.",
+      "overlays": "Hero images must have bg-black/50 or bg-black/60. Never pure transparent."
+    },
+    "dashboard": {
+      "surface": "GRID BORDERS (The 'Technical' Look). Flat solid backgrounds. 1px subtle borders (border-border). No heavy shadows on default state.",
+      "hover": "-translate-y-1 with subtle shadow-md and explicit text color change."
+    }
+  },
+  "layouts_and_grids": {
+    "dashboard_timeline": "Horizontal scrollable grid. Left fixed column: Tables. Top fixed row: Time (e.g., 12:00, 13:00). Grid cells represent time slots. Reservations are blocks overlaid with absolute positioning or subgrid spanning.",
+    "public_wizard": "Bento Grid (Mode A) inspired wrapper. Centered massive glassmorphism card covering 80vh max. Mobile: padding p-4, Desktop: p-12.",
+    "general_spacing": "Generous Spacing. Use p-6 to p-12 inside containers to prevent text collision and maintain breathing room."
+  },
+  "components_strategy": {
+    "dashboard": "Shadcn UI heavily customized. Go cardless or rectangular dense styles for the timeline/list. Use Shadcn Calendar, Select, Dialog for new bookings.",
+    "public": "Raw HTML + Tailwind for structure. Use Shadcn only for complex interactions (Datepicker). Buttons should be pill-shaped or sharp with clear hover interactions.",
+    "badges": "Status badges must use distinct colors, rounded-full, text-xs font-semibold px-2.5 py-0.5."
+  },
+  "motion": {
+    "wizard_transitions": "Use framer-motion for step transitions (fade in, slide up). Ensure smooth progressive disclosure.",
+    "micro_interactions": "Hover states on all buttons (scale, color shift). Focus rings on all inputs."
+  },
+  "accessibility": {
+    "testing": "All interactive elements MUST include data-testid attribute (e.g., data-testid='submit-booking').",
+    "contrast": "Text over images needs text-shadow or dark overlay. Maintain minimum APCA contrast ratios.",
+    "focus": "Clear focus rings on interactive elements (focus:ring-2 focus:ring-primary focus:outline-none)."
+  },
+  "media": {
+    "image_urls": {
+      "public_wizard_bg": {
+        "url": "https://images.pexels.com/photos/20184687/pexels-photo-20184687.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Luxurious upscale dining room. Use as fixed background behind the public booking wizard."
+      },
+      "wizard_step_visual_1": {
+        "url": "https://images.unsplash.com/photo-1663530761401-15eefb544889?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NzB8MHwxfHNlYXJjaHwyfHxnb3VybWV0JTIwZm9vZCUyMHBsYXRpbmclMjBjbG9zZSUyMHVwfGVufDB8fHx8MTc4NTQwNTgzNXww&ixlib=rb-4.1.0&q=85",
+        "description": "Chef pouring sauce. Good for visual split screens in the wizard steps."
+      },
+      "wizard_step_visual_2": {
+        "url": "https://images.unsplash.com/photo-1643101570532-88c8ecc07c1f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1Mjh8MHwxfHNlYXJjaHwzfHxmaW5lJTIwZGluaW5nJTIwcmVzdGF1cmFudCUyMGludGVyaW9yJTIwZWxlZ2FudHxlbnwwfHx8fDE3ODU0MDU4MzR8MA&ixlib=rb-4.1.0&q=85",
+        "description": "Dining room table with wine glasses. Use for confirmation/success screen."
+      }
+    }
+  },
+  "libraries_and_tools": {
+    "icons": "lucide-react (already installed)",
+    "date": "date-fns",
+    "forms": "react-hook-form, zod",
+    "motion": "framer-motion",
+    "toast": "sonner"
+  },
+  "instructions_to_main_agent": [
+    "Build the dashboard (staff view) and public wizard (customer view) as separate conceptual areas (e.g., /dashboard... and /book/:restaurant).",
+    "Implement real-time polling every 5 seconds for dashboard data (using custom hooks with setInterval).",
+    "Develop multi-language support (IT/EN) with a UI toggle accessible in both Dashboard and Public Wizard.",
+    "Dashboard Timeline: Implement as a horizontal grid. Tables are rows, time chunks are columns. Blocks color-coded by status (Pending, Accepted, Seated, Declined, No-Show, Cancelled).",
+    "Public Wizard: 4 steps - 1. Party Size, 2. Date (Calendar), 3. Time Slots, 4. Contact Details. Use Framer Motion for smooth transitions between steps.",
+    "Include Reports view with a bar chart (use Recharts).",
+    "Include Staff Auth login page.",
+    "Implement New Booking Modal with auto-table suggestion logic.",
+    "All components must be written in .js (not .tsx) since the environment uses JS files.",
+    "Ensure 'data-testid' is on all buttons, links, inputs, and major state containers for robust automated testing."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "Do not apply universal transition (transition: all). Use specific properties.",
+    "Do not center align the app container (.App { text-align: center; }).",
+    "Create depth through layered design elements with z-index hierarchy.",
+    "Use glass-morphism effects with backdrop filters (12-24px blur) where appropriate.",
+    "Never use emoji characters like 🤖🧠 for icons. Use lucide-react.",
+    "Every interaction needs micro-animations (hover states, transitions).",
+    "Use sonner for toast notifications.",
+    "Prioritize using pre-existing components from src/components/ui. Create custom .js components matching style.",
+    "NEVER use placeholder image URLs. Use the provided ones."
+  ]
+}
