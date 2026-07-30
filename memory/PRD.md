@@ -73,3 +73,39 @@ Stack: FastAPI + MongoDB + React/Tailwind + JWT auth + 5s polling + Resend email
 3. Configurable booking limits per opening_hour (UI + surfacing to public availability).
 4. Owner-only Users CRUD screen.
 5. Optional Stripe deposit gate for large parties.
+
+## Iteration 2 (2026-02-15) — Advanced features
+
+### New endpoints
+- `PATCH /api/restaurant` (owner-only) — restaurant settings.
+- `GET /api/payments/status/{session_id}` — poll deposit status.
+- `POST /api/stripe/webhook` — Stripe events (checkout.session.completed, expired, failed).
+- `GET/POST /api/public/cancel/{token}` — self-cancel by guest.
+- `POST /api/cron/send-reminders` — Bearer-protected daily job.
+- `GET /api/config/public` — Stripe publishable key.
+
+### New model fields
+- Restaurant: `deposit_enabled`, `deposit_threshold_persons`, `deposit_amount_per_person`,
+  `avg_ticket_per_guest`, `reminder_enabled`, `reminder_lead_hours`,
+  `whatsapp_enabled`, `whatsapp_provider`, `whatsapp_from`.
+- Booking: `deposit_required`, `deposit_amount`, `deposit_status`,
+  `deposit_session_id`, `reminder_sent_at`, `cancel_token`.
+
+### New pages
+- `/settings` — owner-only config form (Generale, Revenue, Depositi, Reminder, WhatsApp).
+- `/floorplan` — drag & drop MVP with 20px snap, one canvas per area.
+- `/cancel/:token` — public self-cancel page.
+- `/payment/success` and `/payment/cancel` — Stripe redirect handlers.
+
+### Cron
+- `.emergent/crons.yml` schedules `POST /api/cron/send-reminders` daily at 10:00 Europe/Rome.
+
+### Verified
+- Backend: 12/12 iter-2 pytest + 28/28 iter-1 all pass.
+- Frontend: 100% of the 6 new features validated end-to-end (Settings persistence, Floor plan drag+save, Mobile sidebar, Public deposit → Stripe URL, Self-cancel flow, Revenue KPI + line chart).
+
+### Backlog updates
+- P1: Real WhatsApp provider wiring (Twilio or Meta Cloud) — infra ready.
+- P1: Deposit refund automation after visit + partial refund on no-show.
+- P2: Floor plan v2 (rotation, walls, background image).
+- P2: Configurable `avg_ticket` per opening_hour (lunch vs dinner).

@@ -91,7 +91,9 @@ export default function Dashboard() {
           <NavItem to="/hours" testId="nav-hours" icon={Clock} label={t("nav.hours")} onClick={closeMobile} />
           <NavItem to="/customers" testId="nav-customers" icon={Users} label={t("nav.customers")} onClick={closeMobile} />
           <NavItem to="/reports" testId="nav-reports" icon={BarChart3} label={t("nav.reports")} onClick={closeMobile} />
-          <NavItem to="/settings" testId="nav-settings" icon={SettingsIcon} label="Impostazioni" onClick={closeMobile} />
+          {user?.role === "owner" && (
+            <NavItem to="/settings" testId="nav-settings" icon={SettingsIcon} label="Impostazioni" onClick={closeMobile} />
+          )}
         </nav>
 
         <div className="p-3 border-t border-zinc-200 space-y-2">
