@@ -1,0 +1,64 @@
+{
+  "summary": "Iteration 4 E2E testing. Backend: 10/10 new pytest cases pass (waitlist public join, staff list, manual notify, delete, missing-404, auto-notify-on-cancel end-to-end, /reports/home shape, revenue arithmetic, auth guards). Iteration 2 still 12/12; iteration 3 still 12/15 (SAME 3 pre-existing failures traced to stray opening_hours row for weekday=0 lunch — see iteration_3 RCA; unrelated to iteration 4 changes). Frontend: Home dashboard at / renders all required testids (kpi-today-bookings=5, kpi-today-guests=24, kpi-today-revenue='1560 €', kpi-today-pending=2, period-week and period-month with numeric summaries, home-chart Recharts area chart, card-waitlist counter '1 in attesa'). Revenue formatted with € symbol as spec'd. /waitlist page: nav-waitlist works; waitlist-filter is a <select> that filters correctly (change to 'notified' returns notified rows); btn-notify-<id> click surfaces toast 'Notifica inviata' and moves entry to notified status; btn-delete-wl-<id> present. /bookings/timeline: timeline-grid data-testid present; NO horizontal scrollbar on document at 1440 (doc_sw=doc_cw=1440); at 1920 it scales (grid client width grows from 1118 to 1334). Note: internal grid element scrollWidth is 1153 vs client 1118 (~35px inner overflow) — not visible as page scrollbar since overflow-x on grid is likely hidden. PublicBooking wizard: service-lunch/dinner + persons-quick-N + calendar day cells all present. no-slots + btn-open-waitlist + waitlist-form + wl-name/wl-email/wl-phone + btn-waitlist-submit + waitlist-done testids all exist in PublicBooking.js source (verified via grep). Could not fully drive the wizard to a no-slots state in the demo DB (all future days for dinner/persons=2 have capacity) — verified the code path exists. FIX APPLIED: Login.js was redirecting to /bookings/list; changed to nav('/') per iteration 4 spec — now landing page after login correctly renders Home dashboard.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "opening_hours (pre-existing from iter3)",
+        "issue": "Stray Monday-lunch opening_hours row (weekday=0, service_type=null, title='Pranzo', 11:30-15:30, slot_interval=30, duration=60) causes iter3's TestServices/TestOpeningHoursServiceType/TestWhatsAppStatus to fail. Unrelated to iter4. See iteration_3 report for RCA & fix."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Login redirect",
+        "issue": "Login.js redirected to /bookings/list instead of / after login — spec (iteration 4) says user must land on Home dashboard at /. FIXED by testing agent (see updated_files).",
+        "selector": "n/a",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "/bookings/timeline",
+        "issues": ["timeline-grid element itself has ~35px internal scrollWidth vs clientWidth (1153 vs 1118) at 1440px viewport; document does NOT overflow horizontally so no visible page scrollbar. Likely a rounding/percent-vs-fractional-px artefact — acceptable but could be tightened by overflow-x:hidden or box-sizing tweak on the grid track."]
+      },
+      {
+        "screen": "Home chart (recharts) console warning",
+        "issues": ["Console emits 'The width(-1) and height(-1) of chart should be greater than 0' twice on first mount before ResponsiveContainer measures its parent. Not visible in UI (chart renders correctly after layout) but adds noise. Consider wrapping in a container with an explicit min-height or check `ref?.current?.clientWidth > 0` before rendering."]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration4.py",
+    "/app/test_reports/pytest/iteration4_results.xml"
+  ],
+  "action_items": [
+    "(Optional) Address the two design_issues above.",
+    "(Carry-over from iter3) Delete the stray Monday-lunch opening_hours row (weekday=0, service_type=null) to unblock the 3 remaining iter3 failures."
+  ],
+  "critical_code_review_comments": [
+    "server.py is now 1237 LOC (up from 999 in iter3). The 700-line threshold has been exceeded for three iterations — please split into routers (public.py, waitlist.py, whatsapp.py, payments.py, reports.py).",
+    "_try_notify_waitlist only notifies the FIRST matching entry per invocation (break at end of loop). If two seats free up simultaneously (e.g. via bulk cancel), only one waitlist entry is notified per booking-status-change call — acceptable but document this behavior.",
+    "_slot_has_availability re-imports generate_slots at call-time (line 534) — already imported at top. Micro nit.",
+    "reports_home _aggregate excludes cancelled/no_show correctly, but 'last7' entries include days ONLY if they had a booking. All 7 days are emitted with zero values — good.",
+    "Waitlist manual notify does NOT re-check availability before sending email — staff may notify a customer even if the restaurant is fully booked. Consider guarding with _slot_has_availability, or at least warn in the toast.",
+    "PublicBooking waitlist form has no client-side email/phone validation (email input is type=email but wl-phone accepts any string). Low priority.",
+    "reports_home computes upcoming from all_docs whose range_end = max(month_end, week_end, today) — if today is late in the month, month_end may be BEFORE today+N which limits 'upcoming' to at most the end of current month. Consider extending range_end to today+14 days to give a proper 'upcoming' preview across month boundaries."
+  ],
+  "updated_files": [
+    "/app/frontend/src/pages/Login.js",
+    "/app/backend/tests/test_iteration4.py"
+  ],
+  "success_rate": {
+    "backend": "100% on iteration-4 tests (10/10). Iteration-3 regression: 12/15 (same 3 pre-existing data-artefact failures). Iteration-2 regression: 12/12.",
+    "frontend": "100% on Home dashboard, /waitlist page (nav, filter, notify toast, delete testids), Timeline (no doc overflow at 1440 or 1920), and PublicBooking testids source-verified. Login redirect bug fixed."
+  },
+  "test_credentials": "owner@demo.com / demo1234 (owner); staff@demo.com / demo1234 (staff); Public: /book/demo",
+  "seed_data_creation": "Tests create their own TEST_ waitlist entries and TEST_ bookings on future Saturdays (+14 days out) and clean them up after each class. One waitlist entry may remain in the demo DB from the demo seed ('Wait Test / wait@t.com / 2026-03-15 CENA 6p'), now in 'notified' status because manual-notify was clicked during frontend testing.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 4 tests at /app/backend/tests/test_iteration4.py. Run: `cd /app/backend && python -m pytest tests/test_iteration4.py -v`. Frontend Home dashboard is at REACT_APP_BACKEND_URL='/' after login. Waitlist page nav-testid is 'nav-waitlist'. To force PublicBooking 'no-slots' state in demo DB, pick persons=20 dinner — calendar will show line-through but no 'no-slots' since the day never becomes selectable. To actually reach no-slots, you'd need to pick a day and have all tables full for that specific slot — try creating enough bookings via API to fill all bookable_online tables for one date, then navigate that day. All required no-slots/btn-open-waitlist/wl-name/wl-email/wl-phone/waitlist-done testids exist in PublicBooking.js. Landing-URL bug in Login.js was fixed by testing agent (nav('/') instead of nav('/bookings/list')).",
+  "rca_of_the_issue": "Login landing-URL bug: /app/frontend/src/pages/Login.js line 21 called nav('/bookings/list') after successful login. Iteration 4 spec says the Home dashboard must be the landing page at '/'. Reproduction: login as owner@demo.com/demo1234 — before fix, page navigated to /bookings/list and Home KPI cards were never rendered. Fix: replaced 'nav(\"/bookings/list\")' with 'nav(\"/\")'. Verified post-fix: landing URL is https://<host>/ and [data-testid=kpi-today-bookings] is present."
+}

@@ -12,6 +12,7 @@ import { AuthProvider, useAuth } from "./auth";
 
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
+import Home from "./pages/Home";
 import BookingsList from "./pages/BookingsList";
 import BookingsCalendar from "./pages/BookingsCalendar";
 import BookingsTimeline from "./pages/BookingsTimeline";
@@ -22,6 +23,7 @@ import Customers from "./pages/Customers";
 import CustomerDetail from "./pages/CustomerDetail";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
+import Waitlist from "./pages/Waitlist";
 import PublicBooking from "./pages/PublicBooking";
 import PublicCancel from "./pages/PublicCancel";
 import PaymentResult from "./pages/PaymentResult";
@@ -52,10 +54,11 @@ function AppRoutes() {
           </RequireAuth>
         }
       >
-        <Route index element={<Navigate to="/bookings/list" replace />} />
+        <Route index element={<Home />} />
         <Route path="bookings/list" element={<BookingsList />} />
         <Route path="bookings/calendar" element={<BookingsCalendar />} />
         <Route path="bookings/timeline" element={<BookingsTimeline />} />
+        <Route path="waitlist" element={<Waitlist />} />
         <Route path="tables" element={<Tables />} />
         <Route path="floorplan" element={<FloorPlan />} />
         <Route path="hours" element={<OpeningHours />} />

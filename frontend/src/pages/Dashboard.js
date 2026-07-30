@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import {
   CalendarDays, List, LayoutGrid, Users, Clock, BarChart3, Table2, LogOut,
-  ExternalLink, Grid3x3, Settings as SettingsIcon, Menu, X,
+  ExternalLink, Grid3x3, Settings as SettingsIcon, Menu, X, Home as HomeIcon, ClipboardList,
 } from "lucide-react";
 import { useI18n } from "../i18n";
 import { useAuth } from "../auth";
@@ -81,10 +81,12 @@ export default function Dashboard() {
         </div>
 
         <nav className="flex-1 overflow-y-auto p-3 space-y-1">
-          <div className="label-eyebrow px-3 py-2">{t("nav.bookings")}</div>
+          <NavItem to="/" testId="nav-home" icon={HomeIcon} label="Home" onClick={closeMobile} />
+          <div className="label-eyebrow px-3 py-2 mt-3">{t("nav.bookings")}</div>
           <NavItem to="/bookings/list" testId="nav-list" icon={List} label={t("nav.list")} onClick={closeMobile} />
           <NavItem to="/bookings/calendar" testId="nav-calendar" icon={CalendarDays} label={t("nav.calendar")} onClick={closeMobile} />
           <NavItem to="/bookings/timeline" testId="nav-timeline" icon={LayoutGrid} label={t("nav.timeline")} onClick={closeMobile} />
+          <NavItem to="/waitlist" testId="nav-waitlist" icon={ClipboardList} label="Lista d'attesa" onClick={closeMobile} />
           <div className="label-eyebrow px-3 py-2 mt-4">Config</div>
           <NavItem to="/tables" testId="nav-tables" icon={Table2} label={t("nav.tables")} onClick={closeMobile} />
           <NavItem to="/floorplan" testId="nav-floorplan" icon={Grid3x3} label="Planimetria" onClick={closeMobile} />

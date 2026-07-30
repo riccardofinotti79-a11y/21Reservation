@@ -137,3 +137,23 @@ Stack: FastAPI + MongoDB + React/Tailwind + JWT auth + 5s polling + Resend email
 ## Iteration 3 hotfix
 - Cleanup: removed a stray Tuesday `lunch` opening_hours row from the demo DB (residuo di uno smoke test dell'iterazione).
 - Post-cleanup checks: Tue lunch → open=false, Sat lunch → 5 slots, POST book Tue lunch → 400 "Ristorante chiuso in quella data".
+
+## Iteration 4 (2026-02-15) — Waitlist + Home dashboard + Fluid timeline
+
+### New endpoints
+- `POST /api/public/{sub}/waitlist` — public waitlist join.
+- `GET /api/waitlist?status=&date_from=&date_to=` — staff list.
+- `POST /api/waitlist/{id}/notify` — manual notify.
+- `DELETE /api/waitlist/{id}` — remove entry.
+- `GET /api/reports/home` — today/week/month KPIs + last7 + upcoming + waitlist count.
+
+### Backend
+- Booking status/delete hooks call `_try_notify_waitlist(rid, date)` — sends email + optional WhatsApp when a matching-capacity slot becomes available. Idempotent per entry.
+- New `WaitlistEntry` model + `waitlist` collection.
+
+### Frontend
+- **New /  (Home)**: KPI cards Today/Week/Month (bookings, guests, revenue), 7-day area+line chart, upcoming bookings list, live waitlist counter link.
+- **New /waitlist page**: table with staff actions Notify + Remove, status filter.
+- **Public wizard**: when no slots available, shows "Iscrivimi alla lista d'attesa" CTA with inline form.
+- **Timeline**: rewritten to percentage-based layout — fits container width, no horizontal scroll. Booking blocks display text only when there's enough space.
+- Sidebar nav updated with Home + Lista d'attesa items.

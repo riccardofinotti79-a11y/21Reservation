@@ -341,6 +341,39 @@ class BookingWithCustomer(Booking):
     customer: Optional[Customer] = None
 
 
+# -------------------- Waitlist --------------------
+WaitlistStatus = Literal["waiting", "notified", "converted", "expired", "cancelled"]
+
+
+class WaitlistEntry(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=new_id)
+    restaurant_id: str
+    date: str
+    service: Optional[str] = None
+    persons: int
+    preferred_time: Optional[str] = None  # optional preference
+    customer_id: Optional[str] = None
+    customer_name: str
+    customer_email: EmailStr
+    customer_phone: str
+    message: Optional[str] = None
+    status: WaitlistStatus = "waiting"
+    notified_at: Optional[str] = None
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class WaitlistCreate(BaseModel):
+    date: str
+    persons: int
+    service: Optional[str] = None
+    preferred_time: Optional[str] = None
+    customer_name: str
+    customer_email: EmailStr
+    customer_phone: str
+    message: Optional[str] = None
+
+
 # -------------------- Availability responses --------------------
 class SlotAvailability(BaseModel):
     time: str

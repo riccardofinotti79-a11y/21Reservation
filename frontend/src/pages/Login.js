@@ -18,7 +18,7 @@ export default function Login() {
     setBusy(true);
     try {
       await login(email, password);
-      nav("/bookings/list");
+      nav("/");
     } catch (err) {
       toast.error(t("login.error"));
     } finally {

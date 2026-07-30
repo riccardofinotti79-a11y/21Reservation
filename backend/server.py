@@ -20,7 +20,8 @@ from models import (  # noqa: E402
     BookingStatusUpdate, BookingUpdate, Customer, CustomerCreate, CustomerUpdate,
     DayAvailability, LoginRequest, LoginResponse, OpeningHour, OpeningHourCreate,
     PublicRestaurantInfo, Restaurant, RestaurantUpdate, SlotAvailability,
-    StatusChange, Table, TableCreate, TableUpdate, User, UserPublic, new_id, utc_now,
+    StatusChange, Table, TableCreate, TableUpdate, User, UserPublic,
+    WaitlistEntry, WaitlistCreate, new_id, utc_now,
 )
 from auth import (  # noqa: E402
     create_access_token, get_current_user, hash_password, verify_password,
@@ -503,6 +504,9 @@ async def change_status(bid: str, body: BookingStatusUpdate, cur=Depends(get_cur
         {"$set": {"status": body.status, "status_history": history}},
     )
     await _recompute_customer_metrics(doc["customer_id"])
+    # If the booking frees up capacity, offer the seat to the waitlist
+    if body.status in ("cancelled", "declined", "no_show"):
+        await _try_notify_waitlist(cur["restaurant_id"], doc["date"])
     updated = await db.bookings.find_one({"id": bid}, NO_ID)
     return Booking(**updated)
 
@@ -514,7 +518,246 @@ async def delete_booking(bid: str, cur=Depends(get_current_user)):
         raise HTTPException(404, "Booking not found")
     await db.bookings.delete_one({"id": bid})
     await _recompute_customer_metrics(doc["customer_id"])
+    await _try_notify_waitlist(cur["restaurant_id"], doc["date"])
     return {"deleted": True}
+
+
+# ==================== WAITLIST ====================
+async def _slot_has_availability(rid: str, date_str: str, persons: int, service: Optional[str]) -> bool:
+    ohs = await db.opening_hours.find({"restaurant_id": rid}, NO_ID).to_list(500)
+    oh = pick_opening_hour(date_str, ohs, service=service)
+    if not oh:
+        return False
+    duration = duration_for_persons(oh, persons)
+    tables_all = await db.tables.find({"restaurant_id": rid, "bookable_online": True}, NO_ID).to_list(1000)
+    existing = await _get_bookings_for_date(rid, date_str)
+    from availability import generate_slots
+    for s in generate_slots(oh, persons):
+        if find_available_tables(persons, date_str, s, duration, tables_all, existing, online_only=True):
+            return True
+    return False
+
+
+async def _try_notify_waitlist(rid: str, date_str: str):
+    """Best-effort: scan waitlist entries for the given date, notify the first
+    one that now has availability. Idempotent — an entry once notified stays 'notified'."""
+    r = await _get_restaurant(rid)
+    entries = await db.waitlist.find(
+        {"restaurant_id": rid, "date": date_str, "status": "waiting"}, NO_ID
+    ).sort("created_at", 1).to_list(200)
+    for w in entries:
+        try:
+            has = await _slot_has_availability(rid, date_str, w["persons"], w.get("service"))
+        except Exception as e:
+            logger.warning(f"Waitlist scan failed: {e}")
+            continue
+        if not has:
+            continue
+        base = os.environ.get("PUBLIC_BASE_URL", "").rstrip("/")
+        book_link = f"{base}/book/{r['subdomain']}"
+        # Email
+        try:
+            html = f"""
+            <html><body style="font-family:Georgia,serif;background:#f6f6f6;padding:24px;">
+              <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;border:1px solid #e4e4e7;">
+                <div style="background:#0a0a0a;color:#fafafa;padding:24px 32px;">
+                  <div style="font-size:12px;letter-spacing:.25em;text-transform:uppercase;color:#a1a1aa;">{r['name']}</div>
+                  <div style="font-size:24px;margin-top:6px;">Un tavolo si è appena liberato</div>
+                </div>
+                <div style="padding:24px 32px;font-family:Arial,sans-serif;color:#0a0a0a;">
+                  <p>Ciao {w['customer_name']},</p>
+                  <p>C'è ora disponibilità per <strong>{w['persons']} persone</strong> in data <strong>{w['date']}</strong>.
+                     Prenota subito prima che qualcun altro lo prenda:</p>
+                  <p><a href="{book_link}" style="display:inline-block;padding:12px 22px;background:#d97706;color:#0a0a0a;border-radius:999px;text-decoration:none;font-weight:600;">Prenota adesso</a></p>
+                </div>
+              </div>
+            </body></html>
+            """
+            await send_email(w["customer_email"], f"Un tavolo libero da {r['name']}", html)
+        except Exception as e:
+            logger.warning(f"Waitlist email failed: {e}")
+        # WhatsApp best-effort
+        try:
+            if w.get("customer_phone"):
+                await send_whatsapp(
+                    r, w["customer_phone"],
+                    f"Ciao {w['customer_name']}, un tavolo per {w['persons']} si è liberato da {r['name']} il {w['date']}. Prenota: {book_link}",
+                )
+        except Exception:
+            pass
+        await db.waitlist.update_one(
+            {"id": w["id"]},
+            {"$set": {"status": "notified", "notified_at": utc_now().isoformat()}},
+        )
+        # Only notify the first matching entry per invocation
+        break
+
+
+@api.post("/public/{subdomain}/waitlist", response_model=WaitlistEntry)
+async def public_join_waitlist(subdomain: str, body: WaitlistCreate):
+    r = await _get_restaurant_by_subdomain(subdomain)
+    rid = r["id"]
+    customer = await _find_or_create_customer(rid, body.customer_name, body.customer_email, body.customer_phone)
+    entry = WaitlistEntry(
+        restaurant_id=rid,
+        customer_id=customer["id"],
+        **body.model_dump(),
+    )
+    d = entry.model_dump()
+    d["created_at"] = d["created_at"].isoformat()
+    await db.waitlist.insert_one(d)
+    # Notify restaurant staff (best-effort)
+    if r.get("email"):
+        try:
+            await send_email(
+                r["email"],
+                f"Nuova iscrizione lista d'attesa — {body.customer_name}",
+                f"<p>{body.customer_name} è in lista d'attesa per il {body.date} — {body.persons} ospiti.</p>"
+                f"<p>Tel: {body.customer_phone}</p><p>Email: {body.customer_email}</p>",
+            )
+        except Exception:
+            pass
+    return entry
+
+
+@api.get("/waitlist", response_model=List[WaitlistEntry])
+async def list_waitlist(
+    cur=Depends(get_current_user),
+    status: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+):
+    q = {"restaurant_id": cur["restaurant_id"]}
+    if status:
+        q["status"] = status
+    if date_from and date_to:
+        q["date"] = {"$gte": date_from, "$lte": date_to}
+    docs = await db.waitlist.find(q, NO_ID).sort([("date", 1), ("created_at", 1)]).to_list(1000)
+    return [WaitlistEntry(**d) for d in docs]
+
+
+@api.post("/waitlist/{wid}/notify")
+async def waitlist_notify_manual(wid: str, cur=Depends(get_current_user)):
+    doc = await db.waitlist.find_one({"id": wid, "restaurant_id": cur["restaurant_id"]}, NO_ID)
+    if not doc:
+        raise HTTPException(404, "Waitlist entry not found")
+    r = await _get_restaurant(cur["restaurant_id"])
+    base = os.environ.get("PUBLIC_BASE_URL", "").rstrip("/")
+    book_link = f"{base}/book/{r['subdomain']}"
+    ok_email = False
+    if doc.get("customer_email"):
+        try:
+            html = (
+                f"<p>Ciao {doc['customer_name']},</p>"
+                f"<p>Un tavolo per {doc['persons']} si è liberato da <strong>{r['name']}</strong> il {doc['date']}. "
+                f"<a href='{book_link}'>Prenota adesso</a>.</p>"
+            )
+            ok_email = await send_email(doc["customer_email"], f"Un tavolo libero da {r['name']}", html)
+        except Exception:
+            pass
+    await db.waitlist.update_one(
+        {"id": wid},
+        {"$set": {"status": "notified", "notified_at": utc_now().isoformat()}},
+    )
+    return {"ok": True, "email_sent": ok_email}
+
+
+@api.delete("/waitlist/{wid}")
+async def waitlist_remove(wid: str, cur=Depends(get_current_user)):
+    r = await db.waitlist.delete_one({"id": wid, "restaurant_id": cur["restaurant_id"]})
+    if r.deleted_count == 0:
+        raise HTTPException(404, "Waitlist entry not found")
+    return {"deleted": True}
+
+
+# ==================== HOME DASHBOARD ====================
+def _iso_week_bounds(d: date_cls):
+    monday = d - timedelta(days=d.weekday())
+    sunday = monday + timedelta(days=6)
+    return monday, sunday
+
+
+def _month_bounds(d: date_cls):
+    from calendar import monthrange
+    first = d.replace(day=1)
+    last = d.replace(day=monthrange(d.year, d.month)[1])
+    return first, last
+
+
+@api.get("/reports/home")
+async def reports_home(cur=Depends(get_current_user)):
+    today = date_cls.today()
+    week_start, week_end = _iso_week_bounds(today)
+    month_start, month_end = _month_bounds(today)
+    r = await _get_restaurant(cur["restaurant_id"])
+    ticket = float(r.get("avg_ticket_per_guest", 0) or 0)
+    active = {"pending", "accepted", "seated"}
+
+    def _aggregate(docs):
+        b = 0; g = 0
+        for d in docs:
+            if d.get("status") in active:
+                b += 1
+                g += d.get("persons", 0)
+        return {"bookings": b, "guests": g, "revenue": round(g * ticket, 2)}
+
+    # Fetch broad range: from 6 days ago up to month_end (covers today/week/month + last7)
+    range_start = min(today - timedelta(days=6), week_start, month_start)
+    range_end = max(month_end, week_end, today)
+    all_docs = await _get_bookings_range(cur["restaurant_id"], range_start.isoformat(), range_end.isoformat())
+    by_date = {}
+    for d in all_docs:
+        by_date.setdefault(d["date"], []).append(d)
+
+    def _for(d0, d1):
+        acc = []
+        d = d0
+        while d <= d1:
+            acc.extend(by_date.get(d.isoformat(), []))
+            d = d + timedelta(days=1)
+        return acc
+
+    today_docs = by_date.get(today.isoformat(), [])
+    week_docs = _for(week_start, week_end)
+    month_docs = _for(month_start, month_end)
+
+    last7 = []
+    for i in range(6, -1, -1):
+        d = today - timedelta(days=i)
+        agg = _aggregate(by_date.get(d.isoformat(), []))
+        last7.append({"date": d.isoformat(), **agg})
+
+    # Pending count today
+    today_pending = sum(1 for x in today_docs if x.get("status") == "pending")
+
+    # Upcoming bookings (next 3 upcoming today or later)
+    upcoming = []
+    now_iso = today.isoformat()
+    future_docs = [x for x in all_docs if x["date"] >= now_iso and x.get("status") in active]
+    future_docs.sort(key=lambda x: (x["date"], x.get("time", "00:00")))
+    upcoming = future_docs[:5]
+
+    # Waitlist counts
+    wl_active = await db.waitlist.count_documents(
+        {"restaurant_id": cur["restaurant_id"], "status": "waiting"}
+    )
+
+    return {
+        "today": {**_aggregate(today_docs), "date": today.isoformat(), "pending": today_pending},
+        "week": {
+            **_aggregate(week_docs),
+            "start": week_start.isoformat(), "end": week_end.isoformat(),
+        },
+        "month": {
+            **_aggregate(month_docs),
+            "start": month_start.isoformat(), "end": month_end.isoformat(),
+        },
+        "last7": last7,
+        "waitlist_active": wl_active,
+        "currency": r.get("currency", "EUR"),
+        "avg_ticket_per_guest": ticket,
+        "upcoming": upcoming,
+    }
 
 
 # ==================== AVAILABILITY ====================
@@ -783,12 +1026,6 @@ async def reports_summary(
         "estimated_revenue": round(total_guests * float(restaurant.get("avg_ticket_per_guest", 0) or 0), 2),
         "currency": restaurant.get("currency", "EUR"),
     }
-
-
-# ==================== HEALTH ====================
-@api.get("/")
-async def root():
-    return {"service": "21Reservation", "status": "ok"}
 
 
 # ==================== SETTINGS ====================

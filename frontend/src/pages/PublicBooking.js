@@ -39,6 +39,10 @@ export default function PublicBooking() {
   const [submitting, setSubmitting] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [loadingSlots, setLoadingSlots] = useState(false);
+  const [waitlistOpen, setWaitlistOpen] = useState(false);
+  const [waitlistDone, setWaitlistDone] = useState(false);
+  const [waitlistBusy, setWaitlistBusy] = useState(false);
+  const [waitlistForm, setWaitlistForm] = useState({ name: "", email: "", phone: "", message: "" });
 
   useEffect(() => {
     api.get(`/public/restaurant/${subdomain}`).then((r) => setRestaurant(r.data)).catch(() => toast.error("Ristorante non trovato"));
@@ -97,6 +101,33 @@ export default function PublicBooking() {
     setStep(1); setPersons(2); setSelectedDate(null); setSelectedTime(null); setService(servicesOffered.length === 1 ? servicesOffered[0] : null);
     setContact({ name: "", email: "", phone: "", message: "", terms: false });
     setConfirmed(false);
+    setWaitlistOpen(false); setWaitlistDone(false); setWaitlistForm({ name: "", email: "", phone: "", message: "" });
+  };
+
+  const submitWaitlist = async () => {
+    if (!waitlistForm.name || !waitlistForm.email || !waitlistForm.phone) {
+      toast.error("Compila nome, email e telefono");
+      return;
+    }
+    setWaitlistBusy(true);
+    try {
+      await api.post(`/public/${subdomain}/waitlist`, {
+        date: selectedDate,
+        persons,
+        service,
+        preferred_time: selectedTime || null,
+        customer_name: waitlistForm.name,
+        customer_email: waitlistForm.email,
+        customer_phone: waitlistForm.phone,
+        message: waitlistForm.message || null,
+      });
+      setWaitlistDone(true);
+      toast.success("Sei in lista d'attesa!");
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Errore");
+    } finally {
+      setWaitlistBusy(false);
+    }
   };
 
   const totalSteps = 4;
@@ -292,8 +323,44 @@ export default function PublicBooking() {
                         </div>
                       ) : loadingSlots ? (
                         <div className="text-white/40 text-sm py-6 text-center">{t("common.loading")}</div>
-                      ) : slots.length === 0 ? (
-                        <div className="text-white/50 text-sm py-10 text-center">{t("book.no_slots")}</div>
+                      ) : slots.length === 0 || slots.every((s) => !s.available) ? (
+                        <div className="text-center py-6 border border-dashed border-white/10 rounded-lg" data-testid="no-slots">
+                          <div className="text-white/60 text-sm">{t("book.no_slots")}</div>
+                          {!waitlistOpen && !waitlistDone && (
+                            <button
+                              data-testid="btn-open-waitlist"
+                              onClick={() => { setWaitlistOpen(true); setWaitlistForm({ ...waitlistForm, name: contact.name, email: contact.email, phone: contact.phone }); }}
+                              className="pill-ghost mt-4">
+                              Iscrivimi alla lista d'attesa
+                            </button>
+                          )}
+                          {waitlistOpen && !waitlistDone && (
+                            <div className="mt-4 space-y-3 text-left max-w-sm mx-auto" data-testid="waitlist-form">
+                              <input data-testid="wl-name" value={waitlistForm.name}
+                                     onChange={(e) => setWaitlistForm({ ...waitlistForm, name: e.target.value })}
+                                     placeholder={t("common.name")}
+                                     className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" />
+                              <input data-testid="wl-email" type="email" value={waitlistForm.email}
+                                     onChange={(e) => setWaitlistForm({ ...waitlistForm, email: e.target.value })}
+                                     placeholder={t("common.email")}
+                                     className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" />
+                              <input data-testid="wl-phone" value={waitlistForm.phone}
+                                     onChange={(e) => setWaitlistForm({ ...waitlistForm, phone: e.target.value })}
+                                     placeholder={t("common.phone")}
+                                     className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" />
+                              <button data-testid="wl-submit" onClick={submitWaitlist} disabled={waitlistBusy}
+                                      className="pill-btn w-full justify-center">
+                                {waitlistBusy ? "…" : "Conferma iscrizione"}
+                              </button>
+                            </div>
+                          )}
+                          {waitlistDone && (
+                            <div className="mt-4 text-emerald-400 text-sm" data-testid="waitlist-done">
+                              <Check size={16} className="inline mr-1" />
+                              Ti avviseremo appena un tavolo si libera.
+                            </div>
+                          )}
+                        </div>
                       ) : (
                         <div className="flex flex-wrap gap-2 max-h-[280px] overflow-y-auto pr-1">
                           {slots.map((s) => (
