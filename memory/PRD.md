@@ -167,3 +167,8 @@ Stack: FastAPI + MongoDB + React/Tailwind + JWT auth + 5s polling + Resend email
 - P2: reports_home extend range_end to today+14 for cross-month upcoming preview.
 - P2: waitlist manual-notify re-check availability before sending.
 - P2: PublicBooking waitlist phone validation.
+
+## Iteration 5 (2026-02-15) — Embeddable widget
+- Serve `/widget.js` static from `frontend/public/widget.js` — script scans for `[data-21r-widget]` elements and mounts either an inline auto-resizing iframe or a floating "Prenota" button that opens an overlay modal.
+- `PublicBooking` supports `?embed=1`: page chrome (header/footer, hero image) is stripped, transparent background, and it posts height via `window.parent.postMessage({source:'21reservation', type:'height', ...})` for parent auto-resize.
+- Settings → new "Widget embed" section with tab toggle Inline/Button, copy-to-clipboard snippet, and live preview iframe (inline) or button.

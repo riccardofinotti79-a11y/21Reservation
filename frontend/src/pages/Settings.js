@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Save, Send, Loader2 } from "lucide-react";
 import api from "../api";
@@ -225,6 +225,8 @@ export default function Settings() {
             </div>
           )}
         </Section>
+
+        <EmbedSection subdomain={r?.subdomain} />
       </div>
 
       <style>{`.input { width: 100%; border: 1px solid #e4e4e7; border-radius: 6px; padding: 8px 12px; background: white; } .input:disabled { background: #f4f4f5; color: #71717a; }`}</style>
@@ -252,6 +254,116 @@ function Field({ label, children }) {
     <div>
       <label className="label-eyebrow block mb-1">{label}</label>
       {children}
+    </div>
+  );
+}
+
+function EmbedSection({ subdomain }) {
+  const [mode, setMode] = useState("inline");
+  const [copied, setCopied] = useState(false);
+  const [previewKey, setPreviewKey] = useState(0);
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const sub = subdomain || "demo";
+
+  const snippet = useMemo(() => {
+    if (mode === "inline") {
+      return `<!-- 21Reservation booking widget -->
+<div data-21r-widget data-subdomain="${sub}"></div>
+<script src="${origin}/widget.js" async></script>`;
+    }
+    return `<!-- 21Reservation floating button -->
+<div data-21r-widget
+     data-subdomain="${sub}"
+     data-mode="button"
+     data-label="Prenota un tavolo"></div>
+<script src="${origin}/widget.js" async></script>`;
+  }, [mode, sub, origin]);
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(snippet);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    } catch { /* noop */ }
+  };
+
+  return (
+    <div className="bg-white border border-zinc-200 rounded-lg p-5" data-testid="embed-section">
+      <div className="flex items-start justify-between mb-4 flex-wrap gap-3">
+        <div>
+          <div className="label-eyebrow">Sezione</div>
+          <div className="font-serif-display text-2xl">Widget embed</div>
+          <div className="text-xs text-zinc-500 mt-1">
+            Incolla lo snippet nel sito del ristorante. Il wizard si adatta al colore e alla larghezza del contenitore.
+          </div>
+        </div>
+        <div className="inline-flex overflow-hidden rounded-full border border-zinc-200">
+          {["inline", "button"].map((m) => (
+            <button
+              key={m}
+              data-testid={`embed-mode-${m}`}
+              onClick={() => { setMode(m); setPreviewKey((k) => k + 1); }}
+              className={`px-4 py-1.5 text-xs font-mono uppercase tracking-widest transition-colors ${
+                mode === m ? "bg-zinc-900 text-white" : "text-zinc-600 hover:bg-zinc-50"
+              }`}
+            >
+              {m === "inline" ? "Inline" : "Button"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="relative">
+        <pre className="bg-zinc-950 text-zinc-100 rounded-md p-4 overflow-x-auto text-xs leading-relaxed" data-testid="embed-snippet">
+{snippet}
+        </pre>
+        <button
+          data-testid="embed-copy"
+          onClick={copy}
+          className={`absolute top-3 right-3 px-3 py-1 rounded-md text-xs font-mono uppercase tracking-widest transition-colors ${
+            copied ? "bg-emerald-500 text-black" : "bg-zinc-800 text-zinc-100 hover:bg-zinc-700"
+          }`}
+        >
+          {copied ? "Copiato" : "Copia"}
+        </button>
+      </div>
+
+      <div className="mt-6">
+        <div className="label-eyebrow mb-2">Anteprima</div>
+        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+          {mode === "inline" ? (
+            <iframe
+              key={previewKey}
+              data-testid="embed-preview-iframe"
+              title="Preview"
+              src={`${origin}/book/${sub}?embed=1`}
+              className="w-full rounded-md bg-black"
+              style={{ minHeight: 640, border: 0 }}
+            />
+          ) : (
+            <div className="text-center py-8">
+              <button
+                data-testid="embed-preview-button"
+                onClick={() => window.open(`${origin}/book/${sub}?embed=1`, "_blank", "width=900,height=800")}
+                className="pill-btn"
+                style={{
+                  background: "#D97706", color: "#0a0a0a",
+                  padding: "12px 22px", borderRadius: 999,
+                  fontWeight: 600, boxShadow: "0 8px 24px -8px rgba(217,119,6,.5)",
+                }}
+              >
+                Prenota un tavolo
+              </button>
+              <div className="text-xs text-zinc-500 mt-3 font-mono">Il bottone apre il wizard in un overlay a schermo intero.</div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-4 text-xs text-zinc-500 space-y-1">
+        <div>URL diretto: <a href={`/book/${sub}`} target="_blank" rel="noreferrer" className="underline">{origin}/book/{sub}</a></div>
+        <div>Personalizza il colore del bottone con <code className="font-mono bg-zinc-100 px-1 rounded">data-color="#…"</code>.</div>
+      </div>
     </div>
   );
 }

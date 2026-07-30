@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useParams, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { ChevronLeft, ChevronRight, Minus, Plus, Check, Sun, Moon } from "lucide-react";
@@ -22,6 +22,8 @@ const stepAnim = {
 
 export default function PublicBooking() {
   const { subdomain } = useParams();
+  const [searchParams] = useSearchParams();
+  const embed = searchParams.get("embed") === "1";
   const { t, lang } = useI18n();
   const [restaurant, setRestaurant] = useState(null);
   const [servicesOffered, setServicesOffered] = useState([]);
@@ -53,6 +55,28 @@ export default function PublicBooking() {
       if (svcs.length === 1) setService(svcs[0]);
     }).catch(() => setServicesOffered([]));
   }, [subdomain]);
+
+  // Embed mode: post height to parent for iframe auto-resize
+  const shellRef = useRef(null);
+  useEffect(() => {
+    if (!embed) return;
+    document.documentElement.style.background = "transparent";
+    document.body.style.background = "transparent";
+    const post = () => {
+      const h = document.body.scrollHeight;
+      try {
+        window.parent.postMessage(
+          { source: "21reservation", type: "height", name: window.name, height: h },
+          "*"
+        );
+      } catch (e) { /* noop */ }
+    };
+    post();
+    const ro = new ResizeObserver(() => post());
+    if (shellRef.current) ro.observe(shellRef.current);
+    const id = setInterval(post, 800);
+    return () => { ro.disconnect(); clearInterval(id); };
+  }, [embed, step, confirmed]);
 
   // Reload month availability whenever service, persons, or month changes and we're at date step
   useEffect(() => {
@@ -133,21 +157,31 @@ export default function PublicBooking() {
   const totalSteps = 4;
 
   return (
-    <div className="public-shell">
-      <img src={HERO_BG} alt="" className="fixed inset-0 h-full w-full object-cover opacity-30" style={{ zIndex: 0 }} />
-      <div className="fixed inset-0 bg-black/40" style={{ zIndex: 0 }} />
+    <div className={embed ? "public-shell public-shell-embed" : "public-shell"} ref={shellRef}>
+      {!embed && (
+        <>
+          <img src={HERO_BG} alt="" className="fixed inset-0 h-full w-full object-cover opacity-30" style={{ zIndex: 0 }} />
+          <div className="fixed inset-0 bg-black/40" style={{ zIndex: 0 }} />
+        </>
+      )}
 
-      <div className="relative z-10 min-h-screen flex flex-col">
-        <header className="px-6 md:px-12 py-6 flex items-center justify-between">
-          <div>
-            <div className="text-[10px] font-mono uppercase tracking-[0.25em] text-white/50">{t("book.by")}</div>
-            <div className="serif-title text-2xl mt-0.5">{restaurant?.name || "…"}</div>
-          </div>
-          <LanguageToggle dark />
-        </header>
+      <div className={embed ? "relative z-10 flex flex-col" : "relative z-10 min-h-screen flex flex-col"}>
+        {!embed && (
+          <header className="px-6 md:px-12 py-6 flex items-center justify-between">
+            <div>
+              <div className="text-[10px] font-mono uppercase tracking-[0.25em] text-white/50">{t("book.by")}</div>
+              <div className="serif-title text-2xl mt-0.5">{restaurant?.name || "…"}</div>
+            </div>
+            <LanguageToggle dark />
+          </header>
+        )}
 
-        <div className="flex-1 flex items-center justify-center px-4 md:px-10 pb-10">
-          <div className="glass w-full max-w-3xl p-6 md:p-12 relative" data-testid="public-wizard">
+        <div className={embed
+          ? "flex items-start justify-center px-3 md:px-6 py-4"
+          : "flex-1 flex items-center justify-center px-4 md:px-10 pb-10"}>
+          <div className={embed
+            ? "glass w-full max-w-2xl p-5 md:p-8 relative"
+            : "glass w-full max-w-3xl p-6 md:p-12 relative"} data-testid="public-wizard">
             {!confirmed && (
               <div className="flex items-center gap-2 mb-8">
                 {Array.from({ length: totalSteps }, (_, i) => i + 1).map((s) => (
@@ -442,9 +476,11 @@ export default function PublicBooking() {
           </div>
         </div>
 
-        <footer className="px-6 md:px-12 py-5 text-xs text-white/40 font-mono tracking-widest uppercase text-center">
-          {t("app.name")} · {restaurant?.address || ""}
-        </footer>
+        {!embed && (
+          <footer className="px-6 md:px-12 py-5 text-xs text-white/40 font-mono tracking-widest uppercase text-center">
+            {t("app.name")} · {restaurant?.address || ""}
+          </footer>
+        )}
       </div>
     </div>
   );

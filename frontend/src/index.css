@@ -73,6 +73,15 @@ html, body {
     font-family: 'IBM Plex Sans', system-ui, sans-serif;
 }
 
+.public-shell-embed {
+    background: transparent;
+    min-height: 0;
+}
+.public-shell-embed .glass {
+    background: rgba(15, 15, 18, 0.92);
+    border-color: rgba(255, 255, 255, 0.06);
+}
+
 .public-shell::before {
     content: '';
     position: fixed;
