@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import api from "../api";
 import usePolling from "../usePolling";
 import { useI18n } from "../i18n";
@@ -16,6 +16,7 @@ const LEFT_COL = 160;
 export default function BookingsTimeline() {
   const { t } = useI18n();
   const [date, setDate] = useState(todayStr());
+  const scrollRef = useRef(null);
 
   const fetchAll = useCallback(async () => {
     const [b, tb, ar, cu, oh] = await Promise.all([
@@ -36,19 +37,38 @@ export default function BookingsTimeline() {
   const areaById = useMemo(() => Object.fromEntries(areas.map((a) => [a.id, a])), [areas]);
 
   // Determine start/end times of the timeline
-  const { startMin, endMin } = useMemo(() => {
-    // Use min booking time and max end time, or defaults
+  const { startMin, endMin, focusMin } = useMemo(() => {
     let start = 12 * 60, end = 24 * 60;
+    let focus = null;
+    // Use opening hours of the selected date to focus the view
+    const wd = (new Date(date + "T12:00:00").getDay() + 6) % 7; // 0=Mon
+    const hours = (data?.hours || []).filter((h) => !h.specific_date && h.weekday === wd);
+    if (hours.length) {
+      const opens = hours.map((h) => toMin(h.open_time));
+      const closes = hours.map((h) => toMin(h.close_time));
+      start = Math.min(...opens);
+      end = Math.max(...closes);
+      focus = Math.min(...opens);
+    }
     if (bookings.length) {
       const s = Math.min(...bookings.map((b) => toMin(b.time)));
       const e = Math.max(...bookings.map((b) => toMin(b.time) + (b.duration_minutes || 120)));
       start = Math.min(start, Math.floor(s / 60) * 60);
       end = Math.max(end, Math.ceil(e / 60) * 60);
+      if (focus === null) focus = s;
     }
     start = Math.max(0, start - 60);
     end = Math.min(28 * 60, end + 60);
-    return { startMin: start, endMin: end };
-  }, [bookings]);
+    return { startMin: start, endMin: end, focusMin: focus };
+  }, [bookings, data, date]);
+
+  // Auto-scroll to the focus time (first opening) on data change
+  useEffect(() => {
+    if (scrollRef.current && focusMin != null) {
+      const px = Math.max(0, (focusMin - startMin) * PX_PER_MIN - 20);
+      scrollRef.current.scrollLeft = px;
+    }
+  }, [focusMin, startMin, date]);
 
   const totalMins = endMin - startMin;
   const gridWidth = totalMins * PX_PER_MIN;
@@ -100,7 +120,7 @@ export default function BookingsTimeline() {
       </div>
 
       <div className="bg-white border border-zinc-200 rounded-lg overflow-hidden">
-        <div className="timeline-scroll">
+        <div ref={scrollRef} className="timeline-scroll">
           <div style={{ width: LEFT_COL + gridWidth }} className="relative">
             {/* Header row */}
             <div className="flex sticky top-0 bg-white border-b border-zinc-200" style={{ height: HEADER_H }}>

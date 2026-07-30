@@ -1,0 +1,75 @@
+# 21Reservation — PRD & Delivery Log
+
+## Original problem statement
+Full-stack restaurant reservation system similar to Resos/OpenTable. Two areas:
+private staff dashboard + public 4-step booking wizard at /book/{subdomain}.
+Stack: FastAPI + MongoDB + React/Tailwind + JWT auth + 5s polling + Resend email.
+
+## User personas
+- Restaurant owner — full config (hours, tables, users, reports).
+- Staff — manage bookings, mark seated / no-show / cancel.
+- Guest (public) — book online via /book/{subdomain}, no login.
+
+## Core requirements (static)
+1. CRUD bookings with real availability + auto-assign tables (closest capacity, area priority).
+2. Three synchronized dashboard views: List, Calendar (month), Timeline (horizontal grid).
+3. Public 4-step wizard (persons → date → time → contact).
+4. Opening hours weekly + specific-date exceptions with duration rules per party size.
+5. Customer CRM with auto-created customer on booking + reliability score.
+6. Two-level slot capacity checks (aggregate + 15-min bucket).
+7. Booking state machine (pending/accepted/seated/declined/no_show/cancelled) with history.
+8. Real Resend email confirmation on public booking + staff notification.
+9. IT/EN UI with toggle in dashboard and public.
+10. Realtime via 5-second polling.
+
+## What's been implemented (2026-02-15)
+### Backend (all endpoints prefixed /api)
+- Auth: POST /auth/login, GET /auth/me (JWT + bcrypt).
+- Restaurant/Public: GET /restaurant, GET /public/restaurant/{sub}.
+- Areas: full CRUD.
+- Tables: full CRUD with area, capacity, shape, priority, bookable flags.
+- Opening hours: CRUD weekly + specific-date exceptions + duration rules.
+- Customers: search list, detail, PATCH tags/notes/flag, booking history.
+- Bookings: create (staff, auto-assign), list, PATCH, status change with history,
+  delete, day-summary, /availability/suggest-tables.
+- Public booking: /public/{sub}/availability/day, /month, /book (creates booking,
+  best-effort emails guest + restaurant).
+- Reports: /reports/summary with per_day, KPIs, estimated_occupancy_pct.
+- Idempotent auto-seed on startup: demo restaurant + 2 users + 3 areas + 11 tables
+  + weekly hours + 4 customers + 6 sample bookings.
+
+### Frontend
+- /login: split-screen (photo + form), pre-filled demo creds.
+- Dashboard shell: sidebar nav, IT/EN toggle, logout.
+- /bookings/list: stats cards, quick actions (accept/decline/seated/no-show), 5s polling.
+- /bookings/calendar: month grid with booking + guest counts per day.
+- /bookings/timeline: horizontal grid tables × time, colored blocks, legend,
+  auto-scroll to dinner window.
+- /tables: area + table CRUD grouped.
+- /hours: weekly + exceptions form.
+- /customers + /customers/:id: search, detail with reliability score + edit.
+- /reports: 5 KPIs + Recharts bar chart.
+- /book/{sub}: 4-step framer-motion wizard, glassmorphic dark theme, confirmation.
+- NewBookingModal: auto-suggest tables, override manual, customer resolve.
+
+### Verified by tests
+- Backend: 28/28 pytest cases pass.
+- Frontend: all core flows pass (login, list, calendar, timeline, tables, hours,
+  customers, reports, language toggle, public wizard end-to-end).
+
+## Backlog (P1/P2)
+- P1: WebSocket real-time (replace polling for lower latency).
+- P1: Visual floor-plan drag&drop editor (positions already in Table model).
+- P1: Payments/deposits/no-show fees (Stripe; hooks already in opening_hours model).
+- P2: SMS notifications, Google Reserve integration, in-app chat.
+- P2: Post-visit feedback / review requests.
+- P2: Public API for POS/Odoo integration.
+- P2: Waitlist for fully-booked slots.
+- P2: Multi-language beyond IT/EN.
+
+## Next tasks list
+1. Owner analytics: revenue estimate per service + top clients report.
+2. Reminder emails (T-24h) and cancellation self-service link for guests.
+3. Configurable booking limits per opening_hour (UI + surfacing to public availability).
+4. Owner-only Users CRUD screen.
+5. Optional Stripe deposit gate for large parties.
