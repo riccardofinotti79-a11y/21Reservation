@@ -1,0 +1,50 @@
+{
+  "summary": "First E2E iteration on 21Reservation. Backend: 28/28 pytest cases pass (auth, restaurant/public, areas/tables/opening-hours CRUD, bookings with closest-fit auto-assign + overlap rejection + state machine, public availability day/month + closed Monday, public booking, reports, customers). Frontend: login works with pre-filled owner creds, list stats cards + quick actions render, calendar/timeline navigate, tables page CRUD works (create area, add table, delete), opening-hours weekly Monday 12:30-15:00 saved and visible, customers search 'Luca' filters correctly, reports page renders recharts + KPIs, IT/EN language toggle works, NewBookingModal opens with auto-suggested tables highlighted (T2/T4/D1/D2 which are all small-capacity for 2 persons), and the full 4-step /book/demo public wizard completes ending with the 'Grazie!' thank-you screen and a real booking created.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/opening-hours", "issue": "open_time/close_time are declared required in OpeningHourCreate even when specific_date + is_closed=true is used to mark a day as closed. Callers must send dummy '00:00' values, which is confusing."},
+      {"endpoint": "GET /api/reports/summary", "issue": "Response uses keys total_no_show / total_cancelled while the review request wording mentioned no_show / cancelled — cosmetic mismatch with spec, but data is present."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Reports KPI cards", "issue": "Review spec expects data-testid=kpi-bookings/kpi-guests/kpi-noshow/kpi-cancelled/kpi-occupancy but none of these test-ids exist. Only report-from, report-to, report-chart are present. Adds friction for automated testing.", "selector": "[data-testid^=kpi-]", "priority": "MEDIUM"},
+      {"component": "Tables page", "issue": "Review spec expects data-testid=btn-new-area / btn-new-table, but the actual test-ids are btn-add-area, btn-add-table-<areaName>, new-area-name, new-table-name. Naming mismatch with spec (functionality works).", "selector": "[data-testid=btn-new-area]", "priority": "LOW"},
+      {"component": "Public wizard step 1", "issue": "Review spec expects [data-testid=quick-N] but implementation uses persons-quick-N. Also step 4 uses contact-name/contact-email/contact-phone/contact-terms instead of the spec's step4-name/email/phone/terms.", "selector": "[data-testid=persons-quick-2]", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "BookingsTimeline", "issues": ["Timeline default viewport shows 11:00-17:00 columns; the primary dinner service window 19:00-23:00 is only accessible via horizontal scroll. Consider auto-scrolling to the first active opening window on load."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/conftest.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "(Optional) Align Reports KPI test-ids with spec (kpi-bookings, kpi-guests, kpi-noshow, kpi-cancelled, kpi-occupancy).",
+    "(Optional) Align Tables page test-ids with spec (btn-new-area, btn-new-table).",
+    "(Optional) Align Public wizard step 1/4 test-ids with spec (quick-N, step4-name/email/phone/terms).",
+    "Consider relaxing OpeningHourCreate validation so open_time/close_time are optional when is_closed=true or specific_date is a closed exception.",
+    "Consider aligning /api/reports/summary field names with spec (no_show/cancelled), or update spec."
+  ],
+  "critical_code_review_comments": [
+    "server.py is ~743 LOC — approaching the 700-line threshold, consider splitting into routers (auth, bookings, tables, public, reports).",
+    "OpeningHourCreate.open_time/close_time being required conflicts with the closed-exception use case; consider Optional[str].",
+    "public_create_booking silently proceeds if body.customer_email is empty for the Emergent email step — currently guarded by try/except which is correct (best-effort).",
+    "Timeline default view does not scroll to the dinner window; UX polish opportunity."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/conftest.py"
+  ],
+  "success_rate": {"backend": "100% (28/28)", "frontend": "~90% (all core flows pass; several data-testid names differ from spec but underlying UI works)"},
+  "test_credentials": "owner@demo.com / demo1234 (owner); staff@demo.com / demo1234 (staff); public subdomain: demo",
+  "seed_data_creation": "Auto-seeded on backend startup (idempotent via subdomain='demo'). Tests use TEST_ prefix and clean up.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend suite lives at /app/backend/tests/backend_test.py with conftest.py that loads REACT_APP_BACKEND_URL from /app/frontend/.env. pytest.ini in /app/backend enforces -n 2 --dist loadscope; run serial with '-n 0'. All 28 tests pass. For UI, correct routes are /hours (not /opening-hours) and /bookings/{list,calendar,timeline}; public wizard testids differ from spec — see frontend_issues section for the actual names.",
+  "rca_of_the_issue": "N/A — no blocking bugs found. Discrepancies between review-request testid names and actual implementation are documented above."
+}
