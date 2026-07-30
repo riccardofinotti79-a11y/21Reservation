@@ -109,3 +109,31 @@ Stack: FastAPI + MongoDB + React/Tailwind + JWT auth + 5s polling + Resend email
 - P1: Deposit refund automation after visit + partial refund on no-show.
 - P2: Floor plan v2 (rotation, walls, background image).
 - P2: Configurable `avg_ticket` per opening_hour (lunch vs dinner).
+
+## Iteration 3 (2026-02-15) — Service selection + WhatsApp providers
+
+### New endpoints
+- `GET /api/public/{sub}/services` — services offered by the restaurant.
+- `/api/public/{sub}/availability/{day,month}` accept optional `service` query.
+- `GET /api/whatsapp/status` — enabled/provider/configured summary.
+- `POST /api/whatsapp/test` — owner-only. Sends a real WhatsApp test through the configured provider; 400 if unconfigured.
+
+### Backend
+- `availability.pick_opening_hour(date, opening_hours, service=)` now filters by service.
+- `whatsapp_service.py` implements real Twilio and Meta Cloud API HTTP sends when the restaurant's per-provider credentials are fully populated. Returns False otherwise (no cost incurred).
+- New model fields on Restaurant: `whatsapp_twilio_sid`, `whatsapp_twilio_auth_token`, `whatsapp_meta_phone_id`, `whatsapp_meta_access_token`.
+- OpeningHour has `service_type` ("lunch" | "dinner" | "other"). Seed and one-off backfill applied.
+- BookingCreatePublic now carries `service` so the correct opening hour is picked.
+
+### Frontend
+- Public wizard restructured to 4 steps: Servizio → Persone → Data+Ora combinati → Contatti (with allergies placeholder).
+- Sun/Moon icons for lunch/dinner; unavailable services rendered disabled.
+- Settings page: dynamic provider panel (Twilio vs Meta) with credential fields, pricing info card, and "Invia test" button.
+
+### Cost note
+- Meta Cloud API: 1000 conversazioni/mese gratis, poi ~$0.005-0.10 per conversazione (setup più complesso).
+- Twilio WhatsApp: nessun tier gratuito, sandbox immediato per test.
+
+## Iteration 3 hotfix
+- Cleanup: removed a stray Tuesday `lunch` opening_hours row from the demo DB (residuo di uno smoke test dell'iterazione).
+- Post-cleanup checks: Tue lunch → open=false, Sat lunch → 5 slots, POST book Tue lunch → 400 "Ristorante chiuso in quella data".
