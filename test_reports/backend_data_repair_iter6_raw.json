@@ -1,0 +1,337 @@
+{
+  "script": "/app/tests/backend_data_repair_iter6.py",
+  "backend_url": "http://localhost:8001",
+  "db_name": "test_database",
+  "checks": [
+    {
+      "name": "demo restaurant seeded",
+      "passed": true,
+      "details": {
+        "id": "245438d0-3d71-47a7-87b2-1ed95bbc18a9",
+        "name": "21Reservation Demo",
+        "subdomain": "demo",
+        "address": "Via Roma 21, Milano",
+        "phone": "+39 02 1234567",
+        "email": "demo@21reservation.app",
+        "description": null,
+        "hero_image_url": null,
+        "theme_preset": null,
+        "accent_color": "#D97706",
+        "language": "it",
+        "currency": "EUR",
+        "timezone": "Europe/Rome",
+        "deposit_enabled": false,
+        "deposit_threshold_persons": 8,
+        "deposit_amount_per_person": 20.0,
+        "avg_ticket_per_guest": 55.0,
+        "reminder_enabled": true,
+        "reminder_lead_hours": 24,
+        "whatsapp_enabled": false,
+        "whatsapp_provider": null,
+        "whatsapp_from": null,
+        "whatsapp_twilio_sid": null,
+        "whatsapp_twilio_auth_token": null,
+        "whatsapp_meta_phone_id": null,
+        "whatsapp_meta_access_token": null,
+        "created_at": "2026-07-31T15:37:23.124324+00:00"
+      }
+    },
+    {
+      "name": "fresh seed has exactly 11 tables",
+      "passed": true,
+      "details": {
+        "count": 11,
+        "names": [
+          "D1",
+          "D2",
+          "D3",
+          "Private-1",
+          "T1",
+          "T2",
+          "T3",
+          "T4",
+          "T5",
+          "T6",
+          "T7"
+        ]
+      }
+    },
+    {
+      "name": "fresh seed positions are non-zero and distinct within each area",
+      "passed": true,
+      "details": {
+        "Dehors": {
+          "count": 3,
+          "positions": [
+            [
+              40.0,
+              40.0
+            ],
+            [
+              160.0,
+              40.0
+            ],
+            [
+              280.0,
+              40.0
+            ]
+          ],
+          "all_not_0_0": true,
+          "distinct": true
+        },
+        "Sala Privata": {
+          "count": 1,
+          "positions": [
+            [
+              40.0,
+              40.0
+            ]
+          ],
+          "all_not_0_0": true,
+          "distinct": true
+        },
+        "Sala Principale": {
+          "count": 7,
+          "positions": [
+            [
+              40.0,
+              40.0
+            ],
+            [
+              160.0,
+              40.0
+            ],
+            [
+              280.0,
+              40.0
+            ],
+            [
+              400.0,
+              40.0
+            ],
+            [
+              40.0,
+              140.0
+            ],
+            [
+              160.0,
+              140.0
+            ],
+            [
+              280.0,
+              140.0
+            ]
+          ],
+          "all_not_0_0": true,
+          "distinct": true
+        }
+      }
+    },
+    {
+      "name": "Andrea Verdi total_bookings coherent and >= 1",
+      "passed": true,
+      "details": {
+        "customer": {
+          "id": "11717ae3-4073-478f-a059-f0dd89c922c7",
+          "restaurant_id": "245438d0-3d71-47a7-87b2-1ed95bbc18a9",
+          "name": "Andrea Verdi",
+          "phone": "+39 333 3334444",
+          "email": "andrea@example.com",
+          "tags": [],
+          "notes": null,
+          "bad_guest_flag": false,
+          "total_bookings": 1,
+          "no_show_count": 0,
+          "cancelled_count": 0,
+          "created_at": "2026-07-31T15:37:23.636004+00:00"
+        },
+        "actual_booking_count": 1
+      }
+    },
+    {
+      "name": "all customer metrics match bookings after fresh seed",
+      "passed": true,
+      "details": []
+    },
+    {
+      "name": "startup repair deletes only names starting with uppercase TEST_",
+      "passed": true,
+      "details": {
+        "delete_names": [
+          "TEST_ITER6_a14a5093_DELETE_A",
+          "TEST_ITER6_a14a5093_DELETE_B"
+        ],
+        "deleted_remaining": [],
+        "keep_names": [
+          "AUDIT_TEST_ITER6_a14a5093_KEEP",
+          "Test ITER6_a14a5093 Keep",
+          "test_ITER6_a14a5093_keep"
+        ],
+        "kept_remaining": [
+          {
+            "name": "AUDIT_TEST_ITER6_a14a5093_KEEP"
+          },
+          {
+            "name": "Test ITER6_a14a5093 Keep"
+          },
+          {
+            "name": "test_ITER6_a14a5093_keep"
+          }
+        ]
+      }
+    },
+    {
+      "name": "no customer currently has name starting with TEST_",
+      "passed": true,
+      "details": {
+        "count": 0
+      }
+    },
+    {
+      "name": "Sala Principale exists",
+      "passed": true,
+      "details": {
+        "id": "124f7752-0806-4ab1-971a-6771f5dac3d0",
+        "restaurant_id": "245438d0-3d71-47a7-87b2-1ed95bbc18a9",
+        "name": "Sala Principale",
+        "priority": 10
+      }
+    },
+    {
+      "name": "collision edge: stuck table moved away from (0,0) and manual slot 0,2",
+      "passed": true,
+      "details": {
+        "manual_position": [
+          40,
+          240
+        ],
+        "stuck_position": [
+          400,
+          140
+        ],
+        "manual": {
+          "id": "3fb9a531-7273-413e-8374-ce342cffc0ce",
+          "restaurant_id": "245438d0-3d71-47a7-87b2-1ed95bbc18a9",
+          "area_id": "124f7752-0806-4ab1-971a-6771f5dac3d0",
+          "name": "QA_ITER6_a14a5093_MANUAL_SLOT_0_2",
+          "seats_min": 2,
+          "seats_max": 4,
+          "priority": -101,
+          "bookable_staff": true,
+          "bookable_online": false,
+          "internal_note": "iter6 collision manual slot 0,2",
+          "shape": "square",
+          "position": {
+            "x": 40,
+            "y": 240
+          }
+        },
+        "stuck": {
+          "id": "48cb607c-3f73-40f8-b395-d6b234922589",
+          "restaurant_id": "245438d0-3d71-47a7-87b2-1ed95bbc18a9",
+          "area_id": "124f7752-0806-4ab1-971a-6771f5dac3d0",
+          "name": "QA_ITER6_a14a5093_STUCK_0_0",
+          "seats_min": 2,
+          "seats_max": 4,
+          "priority": -102,
+          "bookable_staff": true,
+          "bookable_online": false,
+          "internal_note": "iter6 collision stuck table",
+          "shape": "square",
+          "position": {
+            "x": 400,
+            "y": 140
+          }
+        }
+      }
+    },
+    {
+      "name": "Sala Principale has no position collisions after edge repair",
+      "passed": true,
+      "details": {
+        "positions": [
+          [
+            40.0,
+            40.0
+          ],
+          [
+            40.0,
+            140.0
+          ],
+          [
+            40,
+            240
+          ],
+          [
+            160.0,
+            40.0
+          ],
+          [
+            160.0,
+            140.0
+          ],
+          [
+            280.0,
+            40.0
+          ],
+          [
+            280.0,
+            140.0
+          ],
+          [
+            400.0,
+            40.0
+          ],
+          [
+            400,
+            140
+          ]
+        ],
+        "table_count": 9
+      }
+    },
+    {
+      "name": "two consecutive restarts do not duplicate tables or customers",
+      "passed": true,
+      "details": {
+        "baseline_table_count": 13,
+        "final_table_count": 13,
+        "baseline_customer_count": 7,
+        "final_customer_count": 7,
+        "table_id_delta": [],
+        "customer_id_delta": []
+      }
+    },
+    {
+      "name": "two consecutive restarts do not shift already placed table positions",
+      "passed": true,
+      "details": {}
+    }
+  ],
+  "failures": [],
+  "evidence": {
+    "restaurant_id": "245438d0-3d71-47a7-87b2-1ed95bbc18a9",
+    "fresh_seed_table_count": 11,
+    "final_table_count_before_cleanup": 13,
+    "final_core_table_count_before_cleanup": 11,
+    "andrea_total_bookings": 1,
+    "collision_manual_position": [
+      40,
+      240
+    ],
+    "collision_stuck_position": [
+      400,
+      140
+    ],
+    "kept_customer_names_verified": [
+      "AUDIT_TEST_ITER6_a14a5093_KEEP",
+      "Test ITER6_a14a5093 Keep",
+      "test_ITER6_a14a5093_keep"
+    ],
+    "cleanup": {
+      "qa_tables_deleted": 2,
+      "qa_customers_deleted": 3
+    }
+  },
+  "passed": true
+}

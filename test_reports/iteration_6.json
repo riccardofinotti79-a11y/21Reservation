@@ -1,0 +1,37 @@
+{
+  "verdict": "fixed",
+  "user_reported_bug": "Fix dati backend (seed.py + server.py). 3 punti: (1) tavoli con position=(0,0) impilati in planimetria; (2) prenotazioni seed non aggiornano metriche cliente; (3) funzione di riparazione idempotente all'avvio che (a) riposiziona su griglia i tavoli stuck (0,0), (b) ricalcola metriche di tutti i clienti, (c) elimina i clienti con name che inizia per 'TEST_'. Accettazione: planimetria senza tavoli impilati; Totale scheda cliente coerente; nessun cliente TEST_; ri-eseguibile senza duplicati/collisioni.",
+  "summary": "No relevant testing skill found. Focused backend verification passed after fresh DB seed and real supervisor backend restarts: 11 seeded tables were non-(0,0) and distinct per area, Andrea Verdi had total_bookings=1 matching bookings, TEST_ customers were deleted while AUDIT_TEST_/Test/test_ were kept, the sparse collision edge case moved the stuck table to {x:400,y:140} without colliding with the manual {x:40,y:240} table, and two further restarts caused no table/customer duplication or position shifts.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/tests/backend_data_repair_iter6.py",
+    "/app/test_reports/backend_data_repair_iter6_raw.json",
+    "/app/test_reports/bug_verification_6.json",
+    "/app/test_reports/iteration_6.json"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/tests/backend_data_repair_iter6.py",
+    "/app/test_reports/backend_data_repair_iter6_raw.json",
+    "/app/test_reports/bug_verification_6.json",
+    "/app/test_reports/iteration_6.json"
+  ],
+  "success_rate": {
+    "backend": "100%",
+    "frontend": "not tested (backend-only request)"
+  },
+  "seed_data_creation": "Reset preview Mongo database to fresh demo seed. Inserted temporary TEST_/AUDIT_TEST_/Test/test_ customers and two QA_ tables for collision/idempotence testing; cleanup deleted 2 QA tables and 3 retained temporary customers. TEST_ temporary customers were deleted by startup repair as expected.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend-only iter6 verification used /app/tests/backend_data_repair_iter6.py. It performs fresh DB drop, real backend restarts, DB assertions, and cleanup. Raw evidence is in /app/test_reports/backend_data_repair_iter6_raw.json.",
+  "rca_of_the_issue": "Verified the repaired server.py startup _repair_data path now tracks occupied grid slots per area and assigns stuck (0,0) tables to the next unoccupied slot, preventing the iter5 sparse-slot collision. Also verified seed.py metrics and startup repair customer cleanup/idempotence behavior. No mocked APIs were used."
+}

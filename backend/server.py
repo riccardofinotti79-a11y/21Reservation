@@ -1242,23 +1242,44 @@ async def _repair_data(db):
     (b) recompute total/no_show/cancelled counts for every customer;
     (c) delete customers whose name starts with 'TEST_'.
     """
-    # (a) Grid-place stuck tables per area (any table still at 0,0 gets a slot)
+    # (a) Grid-place stuck tables per area (any table still at 0,0 gets next free slot)
+    def _slot_of(pos):
+        x = int(round((pos.get("x", 0) - 40) / 120))
+        y = int(round((pos.get("y", 0) - 40) / 100))
+        return (x, y) if x >= 0 and y >= 0 and x < 4 else None
+
+    def _pos_of(idx):
+        col = idx % 4
+        row = idx // 4
+        return {"x": 40 + col * 120, "y": 40 + row * 100}
+
     areas_all = await db.areas.find({}, NO_ID).to_list(1000)
     for area in areas_all:
+        placed = await db.tables.find(
+            {"area_id": area["id"], "$or": [{"position.x": {"$ne": 0}}, {"position.y": {"$ne": 0}}]},
+            NO_ID,
+        ).to_list(500)
+        occupied = set()
+        for tb in placed:
+            s = _slot_of(tb.get("position") or {})
+            if s is not None:
+                occupied.add(s)
         stuck = await db.tables.find(
             {"area_id": area["id"], "position.x": 0, "position.y": 0},
             NO_ID,
         ).sort("name", 1).to_list(500)
-        placed_count = await db.tables.count_documents(
-            {"area_id": area["id"], "$or": [{"position.x": {"$ne": 0}}, {"position.y": {"$ne": 0}}]}
-        )
-        for idx, tb in enumerate(stuck):
-            slot = placed_count + idx  # offset so we don't overlap already-placed
-            col = slot % 4
-            row = slot // 4
+        cursor = 0
+        for tb in stuck:
+            # advance to next unoccupied slot
+            while True:
+                slot = (cursor % 4, cursor // 4)
+                cursor += 1
+                if slot not in occupied:
+                    occupied.add(slot)
+                    break
             await db.tables.update_one(
                 {"id": tb["id"]},
-                {"$set": {"position": {"x": 40 + col * 120, "y": 40 + row * 100}}},
+                {"$set": {"position": _pos_of((slot[1] * 4) + slot[0])}},
             )
     # (b) Recompute metrics for every customer
     async for c in db.customers.find({}, NO_ID):
