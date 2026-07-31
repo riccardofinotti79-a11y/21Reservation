@@ -119,9 +119,8 @@ export default function FloorPlan() {
       <div
         ref={containerRef}
         data-testid="plan-canvas"
-        className="relative bg-white border border-zinc-200 rounded-lg overflow-hidden"
+        className="relative bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden r21-plan-canvas"
         style={{ width: GRID_W, height: GRID_H, maxWidth: "100%",
-          backgroundImage: `linear-gradient(#f4f4f5 1px, transparent 1px), linear-gradient(90deg, #f4f4f5 1px, transparent 1px)`,
           backgroundSize: `${CELL}px ${CELL}px` }}
       >
         {areaTables.length === 0 && (
@@ -172,3 +171,26 @@ function Legend({ color, label }) {
     </div>
   );
 }
+
+// Grid lines follow the theme via CSS
+const _r21PlanStyle = (() => {
+  if (typeof document === "undefined") return null;
+  const id = "r21-plan-canvas-style";
+  if (document.getElementById(id)) return null;
+  const s = document.createElement("style");
+  s.id = id;
+  s.textContent = `
+    .r21-plan-canvas {
+      background-image:
+        linear-gradient(#f4f4f5 1px, transparent 1px),
+        linear-gradient(90deg, #f4f4f5 1px, transparent 1px);
+    }
+    .dark .r21-plan-canvas {
+      background-image:
+        linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px);
+    }
+  `;
+  document.head.appendChild(s);
+  return true;
+})();
