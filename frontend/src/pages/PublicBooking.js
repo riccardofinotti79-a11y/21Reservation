@@ -10,6 +10,9 @@ import LanguageToggle from "../LanguageToggle";
 function pad(n) { return String(n).padStart(2, "0"); }
 function iso(y, m, d) { return `${y}-${pad(m)}-${pad(d)}`; }
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const PHONE_RE = /^\+?[0-9\s().-]{7,}$/;
+
 const HERO_BG = "https://images.pexels.com/photos/20184687/pexels-photo-20184687.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940";
 const SUCCESS_BG = "https://images.unsplash.com/photo-1643101570532-88c8ecc07c1f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1Mjh8MHwxfHNlYXJjaHwzfHxmaW5lJTIwZGluaW5nJTIwcmVzdGF1cmFudCUyMGludGVyaW9yJTIwZWxlZ2FudHxlbnwwfHx8fDE3ODU0MDU4MzR8MA&ixlib=rb-4.1.0&q=85";
 
@@ -38,6 +41,9 @@ export default function PublicBooking() {
   const [slots, setSlots] = useState([]);
   const [selectedTime, setSelectedTime] = useState(null);
   const [contact, setContact] = useState({ name: "", email: "", phone: "", message: "", terms: false });
+  const [touched, setTouched] = useState({ name: false, email: false, phone: false });
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+  const [legalOpen, setLegalOpen] = useState(null); // "terms" | "privacy" | null
   const [submitting, setSubmitting] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [loadingSlots, setLoadingSlots] = useState(false);
@@ -100,7 +106,24 @@ export default function PublicBooking() {
        .finally(() => setLoadingSlots(false));
   }, [step, selectedDate, persons, service, subdomain]);
 
+  const EMAIL_RE_LOCAL = EMAIL_RE;
+  const PHONE_RE_LOCAL = PHONE_RE;
+  const contactErrors = useMemo(() => {
+    const e = {};
+    if (!contact.name.trim()) e.name = t("book.error_required");
+    if (!contact.email.trim()) e.email = t("book.error_required");
+    else if (!EMAIL_RE_LOCAL.test(contact.email.trim())) e.email = t("book.error_email");
+    if (!contact.phone.trim()) e.phone = t("book.error_required");
+    else if (!PHONE_RE_LOCAL.test(contact.phone.trim())) e.phone = t("book.error_phone");
+    return e;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contact.name, contact.email, contact.phone, lang]);
+
+  const showErr = (field) => (touched[field] || submitAttempted) && contactErrors[field];
+
   const submit = async () => {
+    setSubmitAttempted(true);
+    if (Object.keys(contactErrors).length > 0) return;
     if (!contact.terms) { toast.error("Devi accettare i termini"); return; }
     setSubmitting(true);
     try {
@@ -124,6 +147,8 @@ export default function PublicBooking() {
   const resetAll = () => {
     setStep(1); setPersons(2); setSelectedDate(null); setSelectedTime(null); setService(servicesOffered.length === 1 ? servicesOffered[0] : null);
     setContact({ name: "", email: "", phone: "", message: "", terms: false });
+    setTouched({ name: false, email: false, phone: false });
+    setSubmitAttempted(false);
     setConfirmed(false);
     setWaitlistOpen(false); setWaitlistDone(false); setWaitlistForm({ name: "", email: "", phone: "", message: "" });
   };
@@ -433,19 +458,37 @@ export default function PublicBooking() {
                   <div className="mt-8 max-w-md mx-auto space-y-4">
                     <div>
                       <label className="text-[10px] font-mono uppercase tracking-widest text-white/50 mb-1 block">{t("common.name")}</label>
-                      <input data-testid="contact-name" value={contact.name} onChange={(e) => setContact({ ...contact, name: e.target.value })}
-                             className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-amber-600 transition-colors" />
+                      <input data-testid="contact-name" value={contact.name}
+                             onChange={(e) => setContact({ ...contact, name: e.target.value })}
+                             onBlur={() => setTouched((s) => ({ ...s, name: true }))}
+                             aria-invalid={!!showErr("name")}
+                             className={`w-full bg-white/5 border rounded-lg px-4 py-3 text-white transition-colors ${showErr("name") ? "border-red-500 focus:border-red-500" : "border-white/10 focus:border-amber-600"}`} />
+                      {showErr("name") && (
+                        <div data-testid="err-contact-name" className="mt-1 text-xs text-red-400">{contactErrors.name}</div>
+                      )}
                     </div>
                     <div>
                       <label className="text-[10px] font-mono uppercase tracking-widest text-white/50 mb-1 block">{t("common.email")}</label>
-                      <input data-testid="contact-email" type="email" value={contact.email} onChange={(e) => setContact({ ...contact, email: e.target.value })}
-                             className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-amber-600 transition-colors" />
+                      <input data-testid="contact-email" type="email" value={contact.email}
+                             onChange={(e) => setContact({ ...contact, email: e.target.value })}
+                             onBlur={() => setTouched((s) => ({ ...s, email: true }))}
+                             aria-invalid={!!showErr("email")}
+                             className={`w-full bg-white/5 border rounded-lg px-4 py-3 text-white transition-colors ${showErr("email") ? "border-red-500 focus:border-red-500" : "border-white/10 focus:border-amber-600"}`} />
+                      {showErr("email") && (
+                        <div data-testid="err-contact-email" className="mt-1 text-xs text-red-400">{contactErrors.email}</div>
+                      )}
                     </div>
                     <div>
                       <label className="text-[10px] font-mono uppercase tracking-widest text-white/50 mb-1 block">{t("common.phone")}</label>
-                      <input data-testid="contact-phone" value={contact.phone} onChange={(e) => setContact({ ...contact, phone: e.target.value })}
+                      <input data-testid="contact-phone" value={contact.phone}
+                             onChange={(e) => setContact({ ...contact, phone: e.target.value })}
+                             onBlur={() => setTouched((s) => ({ ...s, phone: true }))}
+                             aria-invalid={!!showErr("phone")}
                              placeholder="+39 …"
-                             className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-amber-600 transition-colors" />
+                             className={`w-full bg-white/5 border rounded-lg px-4 py-3 text-white transition-colors ${showErr("phone") ? "border-red-500 focus:border-red-500" : "border-white/10 focus:border-amber-600"}`} />
+                      {showErr("phone") && (
+                        <div data-testid="err-contact-phone" className="mt-1 text-xs text-red-400">{contactErrors.phone}</div>
+                      )}
                     </div>
                     <div>
                       <label className="text-[10px] font-mono uppercase tracking-widest text-white/50 mb-1 block">{t("book.optional_message")}</label>
@@ -458,7 +501,20 @@ export default function PublicBooking() {
                       <input data-testid="contact-terms" type="checkbox" checked={contact.terms}
                              onChange={(e) => setContact({ ...contact, terms: e.target.checked })}
                              className="mt-1 accent-amber-600" />
-                      <span>{t("book.terms")}</span>
+                      <span>
+                        {t("book.terms_accept_prefix")}{" "}
+                        <button type="button" data-testid="terms-link"
+                                onClick={(e) => { e.preventDefault(); setLegalOpen("terms"); }}
+                                className="underline text-amber-400 hover:text-amber-300">
+                          {t("book.terms_link")}
+                        </button>{" "}
+                        {t("book.terms_and")}{" "}
+                        <button type="button" data-testid="privacy-link"
+                                onClick={(e) => { e.preventDefault(); setLegalOpen("privacy"); }}
+                                className="underline text-amber-400 hover:text-amber-300">
+                          {t("book.privacy_link")}
+                        </button>.
+                      </span>
                     </label>
                     <div className="text-xs font-mono text-white/50 pt-2 border-t border-white/10 space-y-1">
                       <div>{t(`book.service_${service}`)}</div>
@@ -471,7 +527,8 @@ export default function PublicBooking() {
                     <button data-testid="step4-back" onClick={() => setStep(3)} className="pill-ghost">
                       <ChevronLeft size={16} /> {t("book.back")}
                     </button>
-                    <button data-testid="step4-submit" onClick={submit} disabled={submitting || !contact.name || !contact.email || !contact.phone || !contact.terms}
+                    <button data-testid="step4-submit" onClick={submit}
+                            disabled={submitting || Object.keys(contactErrors).length > 0 || !contact.terms}
                             className="pill-btn">
                       {submitting ? "…" : t("book.confirm")} <Check size={16} />
                     </button>
@@ -486,6 +543,42 @@ export default function PublicBooking() {
           <footer className="px-6 md:px-12 py-5 text-xs text-white/40 font-mono tracking-widest uppercase text-center">
             {t("app.name")} · {restaurant?.address || ""}
           </footer>
+        )}
+
+        {legalOpen && (
+          <div data-testid="legal-modal"
+               className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+               onClick={() => setLegalOpen(null)}>
+            <div className="bg-zinc-950 border border-white/10 rounded-xl max-w-lg w-full max-h-[80vh] overflow-y-auto p-6 text-white/80"
+                 onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="serif-title text-2xl text-white">
+                  {legalOpen === "terms" ? t("book.terms_title") : t("book.privacy_title")}
+                </h3>
+                <button data-testid="legal-close" onClick={() => setLegalOpen(null)}
+                        className="text-white/60 hover:text-white text-sm">
+                  {t("book.close")}
+                </button>
+              </div>
+              <div className="text-sm leading-relaxed space-y-3">
+                {legalOpen === "terms" ? (
+                  <>
+                    <p>Prenotando un tavolo tramite {restaurant?.name || "questo servizio"} accetti di presentarti all'orario indicato con il numero di ospiti prenotati.</p>
+                    <p>Il ristorante può richiedere una conferma o un acconto per gruppi numerosi. In caso di ritardo superiore a 15 minuti la prenotazione può essere considerata decaduta.</p>
+                    <p>Cancellazioni e modifiche vanno effettuate tramite il link ricevuto via email. Il ristorante si riserva il diritto di rifiutare prenotazioni in caso di indisponibilità.</p>
+                    <p>Per assistenza contatta direttamente il ristorante ai recapiti indicati sul sito.</p>
+                  </>
+                ) : (
+                  <>
+                    <p>I dati che fornisci (nome, email, telefono, messaggio) vengono usati esclusivamente per gestire la tua prenotazione e comunicare eventuali variazioni.</p>
+                    <p>Il titolare del trattamento è {restaurant?.name || "il ristorante"}. I dati non vengono ceduti a terzi ad eccezione dei fornitori tecnici (email, SMS, WhatsApp) strettamente necessari al servizio.</p>
+                    <p>Puoi richiedere in qualsiasi momento la modifica o la cancellazione dei tuoi dati scrivendo al ristorante.</p>
+                    <p>Ai sensi del GDPR (Reg. UE 2016/679) hai diritto di accesso, rettifica, cancellazione, limitazione e portabilità dei dati.</p>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>

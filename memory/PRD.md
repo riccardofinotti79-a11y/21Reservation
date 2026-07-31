@@ -189,3 +189,10 @@ Stack: FastAPI + MongoDB + React/Tailwind + JWT auth + 5s polling + Resend email
 - `NewBookingModal` shows customer_* inputs also in edit mode but the PATCH ignores them (no customer swap yet) — UX-only.
 - `BookingsTimeline` relies on the 5s polling to refresh after an edit (no explicit refresh call).
 - `server.py` LOC = 1319; split into routers deferred (P1 backlog).
+
+## Iteration 8 (2026-02-15) — PublicBooking UX polish
+- Inline field validation on step 4 (Contatti): required + regex format for email (`^[^\s@]+@[^\s@]+\.[^\s@]{2,}$`) and phone (`^\+?[0-9\s().-]{7,}$`); errors surface `onBlur` per field, red border + red text under the input (testids `err-contact-name/email/phone`).
+- Submit button stays disabled until name/email/phone/terms are all valid (regex included) — the AI-slop "silent disabled button" is gone.
+- Terms & Privacy inside the accept-checkbox are now clickable buttons (`terms-link`, `privacy-link`) that open an in-page modal (`legal-modal`) with the respective document — no route change, works also in `?embed=1`.
+- New i18n keys (IT + EN): `book.terms_accept_prefix`, `book.terms_link`, `book.terms_and`, `book.privacy_link`, `book.terms_title`, `book.privacy_title`, `book.close`, `book.error_required`, `book.error_email`, `book.error_phone`.
+- Scope contenuto: solo `PublicBooking.js` + `i18n.js`. Nessun cambio backend, nessuna nuova route.
