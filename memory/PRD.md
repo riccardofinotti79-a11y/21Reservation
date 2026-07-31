@@ -172,3 +172,20 @@ Stack: FastAPI + MongoDB + React/Tailwind + JWT auth + 5s polling + Resend email
 - Serve `/widget.js` static from `frontend/public/widget.js` — script scans for `[data-21r-widget]` elements and mounts either an inline auto-resizing iframe or a floating "Prenota" button that opens an overlay modal.
 - `PublicBooking` supports `?embed=1`: page chrome (header/footer, hero image) is stripped, transparent background, and it posts height via `window.parent.postMessage({source:'21reservation', type:'height', ...})` for parent auto-resize.
 - Settings → new "Widget embed" section with tab toggle Inline/Button, copy-to-clipboard snippet, and live preview iframe (inline) or button.
+
+## Iteration 6 (2026-02-15) — Data repair on startup
+- `server.py` startup runs an idempotent `_repair_data` routine that (a) re-lays tables stuck at (0,0) on a per-area grid without colliding with manually-placed tables, (b) recomputes all customer metrics from the current bookings collection, (c) deletes stray `TEST_` customers left by past QA runs.
+- `FloorPlan.js` dark-mode: canvas + area titles + snap grid apply `dark:` classes so tables stay visible in dark theme.
+- Verified backend-only via `/app/tests/backend_data_repair_iter6.py` — 100%.
+
+## Iteration 7 (2026-02-15) — Edit Booking from Lista / Timeline
+- Backend: new `PATCH /api/bookings/{bid}` accepting `BookingUpdate` (date, time, duration_minutes, persons, table_ids, guest_message, internal_note, status, source). On status change it appends to `status_history`, recomputes customer metrics and, if the new status frees a seat (cancelled/declined/no_show), triggers `_try_notify_waitlist`.
+- Frontend: `NewBookingModal` accepts a `booking` prop and switches to Edit mode (title "Modifica prenotazione", form pre-filled, `nb-submit` calls `PATCH /api/bookings/{id}`).
+- `BookingsList`: clicking a row (`booking-row-<id>`) opens the modal in edit; quick-action cells (`action-accept/decline/seated/noshow-<id>`) call `stopPropagation` so they do NOT open the modal.
+- `BookingsTimeline`: clicking a `tl-block-<id>` opens the same modal in edit mode.
+- Verified end-to-end: 7/7 backend pytest + 5/5 frontend flows — report `/app/test_reports/iteration_7.json`.
+
+## Known non-blocking notes (Feb 2026)
+- `NewBookingModal` shows customer_* inputs also in edit mode but the PATCH ignores them (no customer swap yet) — UX-only.
+- `BookingsTimeline` relies on the 5s polling to refresh after an edit (no explicit refresh call).
+- `server.py` LOC = 1319; split into routers deferred (P1 backlog).
