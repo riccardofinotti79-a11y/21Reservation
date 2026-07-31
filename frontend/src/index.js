@@ -9,6 +9,7 @@ import "./App.css";
 
 import { I18nProvider } from "./i18n";
 import { AuthProvider, useAuth } from "./auth";
+import { ThemeProvider } from "./theme";
 
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -46,14 +47,7 @@ function AppRoutes() {
       <Route path="/payment/success" element={<PaymentResult mode="success" />} />
       <Route path="/payment/cancel" element={<PaymentResult mode="cancel" />} />
       <Route path="/login" element={<Login />} />
-      <Route
-        path="/"
-        element={
-          <RequireAuth>
-            <Dashboard />
-          </RequireAuth>
-        }
-      >
+      <Route path="/" element={<RequireAuth><Dashboard /></RequireAuth>}>
         <Route index element={<Home />} />
         <Route path="bookings/list" element={<BookingsList />} />
         <Route path="bookings/calendar" element={<BookingsCalendar />} />
@@ -76,14 +70,16 @@ const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <I18nProvider>
-        <AuthProvider>
-          <BrowserRouter>
-            <AppRoutes />
-            <Toaster position="top-right" richColors />
-          </BrowserRouter>
-        </AuthProvider>
-      </I18nProvider>
+      <ThemeProvider>
+        <I18nProvider>
+          <AuthProvider>
+            <BrowserRouter>
+              <AppRoutes />
+              <Toaster position="top-right" richColors />
+            </BrowserRouter>
+          </AuthProvider>
+        </I18nProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   </React.StrictMode>
 );

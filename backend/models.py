@@ -33,6 +33,10 @@ class Restaurant(BaseModel):
     address: Optional[str] = None
     phone: Optional[str] = None
     email: Optional[EmailStr] = None
+    description: Optional[str] = None
+    hero_image_url: Optional[str] = None
+    theme_preset: Optional[str] = None  # "warm" | "marble" | "vintage" | "coastal" | "rustic" | "midnight" | "custom"
+    accent_color: str = "#D97706"
     language: str = "it"
     currency: str = "EUR"
     timezone: str = "Europe/Rome"
@@ -62,6 +66,10 @@ class RestaurantUpdate(BaseModel):
     address: Optional[str] = None
     phone: Optional[str] = None
     email: Optional[EmailStr] = None
+    description: Optional[str] = None
+    hero_image_url: Optional[str] = None
+    theme_preset: Optional[str] = None
+    accent_color: Optional[str] = None
     language: Optional[str] = None
     currency: Optional[str] = None
     timezone: Optional[str] = None
@@ -393,6 +401,11 @@ class PublicRestaurantInfo(BaseModel):
     subdomain: str
     address: Optional[str] = None
     phone: Optional[str] = None
+    email: Optional[EmailStr] = None
+    description: Optional[str] = None
+    hero_image_url: Optional[str] = None
+    theme_preset: Optional[str] = None
+    accent_color: str = "#D97706"
     language: str
     currency: str
     timezone: str

@@ -1229,6 +1229,56 @@ async def on_startup():
         await seed_demo(db)
     except Exception as e:
         logger.warning(f"Auto-seed skipped: {e}")
+    # One-off idempotent repair
+    try:
+        await _repair_data(db)
+    except Exception as e:
+        logger.warning(f"Repair pass skipped: {e}")
+
+
+async def _repair_data(db):
+    """Idempotent one-off cleanup safe to run on every boot:
+    (a) grid-place tables still at position (0,0), grouped by area (4/row, 120px step);
+    (b) recompute total/no_show/cancelled counts for every customer;
+    (c) delete customers whose name starts with 'TEST_'.
+    """
+    # (a) Grid-place stuck tables per area (any table still at 0,0 gets a slot)
+    areas_all = await db.areas.find({}, NO_ID).to_list(1000)
+    for area in areas_all:
+        stuck = await db.tables.find(
+            {"area_id": area["id"], "position.x": 0, "position.y": 0},
+            NO_ID,
+        ).sort("name", 1).to_list(500)
+        placed_count = await db.tables.count_documents(
+            {"area_id": area["id"], "$or": [{"position.x": {"$ne": 0}}, {"position.y": {"$ne": 0}}]}
+        )
+        for idx, tb in enumerate(stuck):
+            slot = placed_count + idx  # offset so we don't overlap already-placed
+            col = slot % 4
+            row = slot // 4
+            await db.tables.update_one(
+                {"id": tb["id"]},
+                {"$set": {"position": {"x": 40 + col * 120, "y": 40 + row * 100}}},
+            )
+    # (b) Recompute metrics for every customer
+    async for c in db.customers.find({}, NO_ID):
+        docs = await db.bookings.find({"customer_id": c["id"]}, NO_ID).to_list(5000)
+        total = len(docs)
+        no_show = sum(1 for x in docs if x.get("status") == "no_show")
+        cancelled = sum(1 for x in docs if x.get("status") == "cancelled")
+        if (c.get("total_bookings") != total
+                or c.get("no_show_count") != no_show
+                or c.get("cancelled_count") != cancelled):
+            await db.customers.update_one(
+                {"id": c["id"]},
+                {"$set": {
+                    "total_bookings": total,
+                    "no_show_count": no_show,
+                    "cancelled_count": cancelled,
+                }},
+            )
+    # (c) Delete TEST_ customers
+    await db.customers.delete_many({"name": {"$regex": "^TEST_"}})
 
 
 @app.on_event("shutdown")

@@ -157,10 +157,16 @@ export default function PublicBooking() {
   const totalSteps = 4;
 
   return (
-    <div className={embed ? "public-shell public-shell-embed" : "public-shell"} ref={shellRef}>
+    <div className={embed ? "public-shell public-shell-embed" : "public-shell"} ref={shellRef}
+         style={{ "--r21-accent": restaurant?.accent_color || "#D97706" }}>
       {!embed && (
         <>
-          <img src={HERO_BG} alt="" className="fixed inset-0 h-full w-full object-cover opacity-30" style={{ zIndex: 0 }} />
+          {(() => {
+            const hero = restaurant?.hero_image_url || HERO_BG;
+            return hero
+              ? <img src={hero} alt="" className="fixed inset-0 h-full w-full object-cover opacity-30" style={{ zIndex: 0 }} />
+              : null;
+          })()}
           <div className="fixed inset-0 bg-black/40" style={{ zIndex: 0 }} />
         </>
       )}

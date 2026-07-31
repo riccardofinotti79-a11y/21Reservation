@@ -71,6 +71,11 @@ async def seed_demo(db) -> dict:
 
     # Tables
     tables = []
+    def _grid_pos(idx):
+        col = idx % 4
+        row = idx // 4
+        return {"x": 40 + col * 120, "y": 40 + row * 100}
+    sala_i = 0; dehors_i = 0; private_i = 0
     # Sala Principale
     for i, (name, mn, mx) in enumerate([
         ("T1", 1, 2), ("T2", 1, 2), ("T3", 2, 4), ("T4", 2, 4),
@@ -80,7 +85,9 @@ async def seed_demo(db) -> dict:
             restaurant_id=r.id, area_id=sala.id, name=name,
             seats_min=mn, seats_max=mx, priority=10 - i,
             shape="round" if mn <= 2 else "square",
+            position=_grid_pos(sala_i),
         ))
+        sala_i += 1
     # Dehors
     for i, (name, mn, mx) in enumerate([
         ("D1", 2, 2), ("D2", 2, 4), ("D3", 4, 6),
@@ -89,11 +96,14 @@ async def seed_demo(db) -> dict:
             restaurant_id=r.id, area_id=dehors.id, name=name,
             seats_min=mn, seats_max=mx, priority=5 - i,
             shape="square",
+            position=_grid_pos(dehors_i),
         ))
+        dehors_i += 1
     # Private
     tables.append(Table(
         restaurant_id=r.id, area_id=private.id, name="Private-1",
         seats_min=6, seats_max=12, priority=1, shape="rect",
+        position=_grid_pos(private_i),
     ))
     await db.tables.insert_many([t.model_dump() for t in tables])
 
@@ -161,6 +171,7 @@ async def seed_demo(db) -> dict:
         (1, "21:00", 8, "accepted", customers[0], tables[6].id),
         (2, "20:15", 3, "seated", customers[1], tables[3].id),
     ]
+    involved_customer_ids = set()
     for offset, time_str, persons, status, cust, table_id in sample_bookings:
         d = (today + timedelta(days=offset)).isoformat()
         b = Booking(
@@ -180,6 +191,22 @@ async def seed_demo(db) -> dict:
         for sh in doc["status_history"]:
             sh["at"] = sh["at"].isoformat() if hasattr(sh["at"], "isoformat") else sh["at"]
         await db.bookings.insert_one(doc)
+        involved_customer_ids.add(cust.id)
+
+    # Recompute metrics for each customer touched by seed bookings
+    for cid in involved_customer_ids:
+        docs = await db.bookings.find({"customer_id": cid}, {"_id": 0}).to_list(2000)
+        total = len(docs)
+        no_show = sum(1 for x in docs if x.get("status") == "no_show")
+        cancelled = sum(1 for x in docs if x.get("status") == "cancelled")
+        await db.customers.update_one(
+            {"id": cid},
+            {"$set": {
+                "total_bookings": total,
+                "no_show_count": no_show,
+                "cancelled_count": cancelled,
+            }},
+        )
 
     return {
         "created": True,

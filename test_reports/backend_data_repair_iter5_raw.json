@@ -1,0 +1,1171 @@
+{
+  "base_url": "http://localhost:8001/api",
+  "db_name": "test_database",
+  "timestamp": "2026-07-31T15:32:50.031029+00:00",
+  "failures": [
+    {
+      "label": "collision_edge: no duplicate table positions within the same area",
+      "passed": false,
+      "details": [
+        {
+          "area": "Sala Principale",
+          "position": [
+            40.0,
+            240.0
+          ],
+          "tables": [
+            "QA_MANUAL_SLOT8",
+            "QA_STUCK_COLLISION"
+          ]
+        }
+      ]
+    },
+    {
+      "label": "collision_edge: repaired stuck table did not overlap the existing manual grid-slot table",
+      "passed": false,
+      "details": {
+        "manual": {
+          "id": "9eda0422-fd63-4e21-9cd2-4f9f1e0e643e",
+          "restaurant_id": "798b12d5-b9e0-444d-8763-c376efddce1a",
+          "area_id": "095c4d24-50ea-4d30-8d50-542c8cdf91ae",
+          "name": "QA_MANUAL_SLOT8",
+          "seats_min": 1,
+          "seats_max": 2,
+          "priority": -100,
+          "bookable_staff": true,
+          "bookable_online": false,
+          "internal_note": null,
+          "shape": "square",
+          "position": {
+            "x": 40.0,
+            "y": 240.0
+          }
+        },
+        "stuck_after_repair": {
+          "id": "5d191ec5-5603-43a5-bdca-ad08361034ed",
+          "restaurant_id": "798b12d5-b9e0-444d-8763-c376efddce1a",
+          "area_id": "095c4d24-50ea-4d30-8d50-542c8cdf91ae",
+          "name": "QA_STUCK_COLLISION",
+          "seats_min": 1,
+          "seats_max": 2,
+          "priority": -100,
+          "bookable_staff": true,
+          "bookable_online": false,
+          "internal_note": null,
+          "shape": "square",
+          "position": {
+            "x": 40.0,
+            "y": 240.0
+          }
+        }
+      }
+    }
+  ],
+  "checks": [
+    {
+      "label": "fresh_seed: demo login works after fresh seed",
+      "passed": true,
+      "details": {
+        "id": "6fa5a6a9-0472-44f2-831f-c2cfc6458971",
+        "name": "21Reservation Demo",
+        "subdomain": "demo",
+        "address": "Via Roma 21, Milano",
+        "phone": "+39 02 1234567",
+        "email": "demo@21reservation.app",
+        "description": null,
+        "hero_image_url": null,
+        "theme_preset": null,
+        "accent_color": "#D97706",
+        "language": "it",
+        "currency": "EUR",
+        "timezone": "Europe/Rome",
+        "deposit_enabled": false,
+        "deposit_threshold_persons": 8,
+        "deposit_amount_per_person": 20.0,
+        "avg_ticket_per_guest": 55.0,
+        "reminder_enabled": true,
+        "reminder_lead_hours": 24,
+        "whatsapp_enabled": false,
+        "whatsapp_provider": null,
+        "whatsapp_from": null,
+        "whatsapp_twilio_sid": null,
+        "whatsapp_twilio_auth_token": null,
+        "whatsapp_meta_phone_id": null,
+        "whatsapp_meta_access_token": null,
+        "created_at": "2026-07-31T15:32:33.539366Z"
+      }
+    },
+    {
+      "label": "fresh_seed: no table remains at (0,0)",
+      "passed": true,
+      "details": []
+    },
+    {
+      "label": "fresh_seed: no duplicate table positions within the same area",
+      "passed": true,
+      "details": []
+    },
+    {
+      "label": "fresh_seed: seeded table positions follow 4-column 120x100 grid per area",
+      "passed": true,
+      "details": []
+    },
+    {
+      "label": "fresh_seed: every customer metric equals bookings history",
+      "passed": true,
+      "details": []
+    },
+    {
+      "label": "fresh_seed: Andrea Verdi exists and total_bookings >= 1",
+      "passed": true,
+      "details": [
+        {
+          "id": "87588bd2-8196-4edf-919d-1d8f0c3a738b",
+          "restaurant_id": "6fa5a6a9-0472-44f2-831f-c2cfc6458971",
+          "name": "Andrea Verdi",
+          "phone": "+39 333 3334444",
+          "email": "andrea@example.com",
+          "tags": [],
+          "notes": null,
+          "bad_guest_flag": false,
+          "total_bookings": 1,
+          "no_show_count": 0,
+          "cancelled_count": 0,
+          "created_at": "2026-07-31T15:32:33.993949Z"
+        }
+      ]
+    },
+    {
+      "label": "fresh_seed: seeded named customer totals are exact",
+      "passed": true,
+      "details": []
+    },
+    {
+      "label": "fresh_seed: no duplicate customer names",
+      "passed": true,
+      "details": []
+    },
+    {
+      "label": "fresh_seed: no stored customer starts with literal TEST_",
+      "passed": true,
+      "details": []
+    },
+    {
+      "label": "fresh_seed: /customers?search=TEST_ returns no literal TEST_ prefix names",
+      "passed": true,
+      "details": []
+    },
+    {
+      "label": "fresh_seed: seeded table count is 11",
+      "passed": true,
+      "details": 11
+    },
+    {
+      "label": "fresh_seed: seeded customer count is 4",
+      "passed": true,
+      "details": 4
+    },
+    {
+      "label": "idempotency: table count unchanged after two restarts",
+      "passed": true,
+      "details": {
+        "before": 11,
+        "after": 11
+      }
+    },
+    {
+      "label": "idempotency: customer count unchanged after two restarts",
+      "passed": true,
+      "details": {
+        "before": 4,
+        "after": 4
+      }
+    },
+    {
+      "label": "idempotency: positions did not shift after two restarts",
+      "passed": true,
+      "details": {
+        "before": {
+          "809318d5-1356-4614-8f34-8b8de3b81bf7": [
+            40.0,
+            40.0
+          ],
+          "84742e35-92d9-4b02-8885-40543d222fb0": [
+            160.0,
+            40.0
+          ],
+          "7ce55168-2da5-4ef0-b18a-4402c85e5b4c": [
+            280.0,
+            40.0
+          ],
+          "32db43e8-7486-483e-9a6a-c0f7258526bc": [
+            400.0,
+            40.0
+          ],
+          "594bfeda-78dd-45f4-8367-f0cbe7225af3": [
+            40.0,
+            140.0
+          ],
+          "57991e9a-965e-4d7d-997c-47de7a72e74c": [
+            160.0,
+            140.0
+          ],
+          "ecf4698a-b518-45d0-9973-cac224812518": [
+            280.0,
+            140.0
+          ],
+          "01e995a6-0e37-43b4-b0a6-e21a31e42cad": [
+            40.0,
+            40.0
+          ],
+          "0030f0d5-b072-4650-871b-d634a1099a07": [
+            160.0,
+            40.0
+          ],
+          "2d737b06-589e-4a3a-aaef-50c002936b47": [
+            280.0,
+            40.0
+          ],
+          "b8160179-f0df-4583-b617-bb029a8d4518": [
+            40.0,
+            40.0
+          ]
+        },
+        "after": {
+          "809318d5-1356-4614-8f34-8b8de3b81bf7": [
+            40.0,
+            40.0
+          ],
+          "84742e35-92d9-4b02-8885-40543d222fb0": [
+            160.0,
+            40.0
+          ],
+          "7ce55168-2da5-4ef0-b18a-4402c85e5b4c": [
+            280.0,
+            40.0
+          ],
+          "32db43e8-7486-483e-9a6a-c0f7258526bc": [
+            400.0,
+            40.0
+          ],
+          "594bfeda-78dd-45f4-8367-f0cbe7225af3": [
+            40.0,
+            140.0
+          ],
+          "57991e9a-965e-4d7d-997c-47de7a72e74c": [
+            160.0,
+            140.0
+          ],
+          "ecf4698a-b518-45d0-9973-cac224812518": [
+            280.0,
+            140.0
+          ],
+          "01e995a6-0e37-43b4-b0a6-e21a31e42cad": [
+            40.0,
+            40.0
+          ],
+          "0030f0d5-b072-4650-871b-d634a1099a07": [
+            160.0,
+            40.0
+          ],
+          "2d737b06-589e-4a3a-aaef-50c002936b47": [
+            280.0,
+            40.0
+          ],
+          "b8160179-f0df-4583-b617-bb029a8d4518": [
+            40.0,
+            40.0
+          ]
+        }
+      }
+    },
+    {
+      "label": "idempotency: no table remains at (0,0)",
+      "passed": true,
+      "details": []
+    },
+    {
+      "label": "idempotency: no duplicate table positions within the same area",
+      "passed": true,
+      "details": []
+    },
+    {
+      "label": "idempotency: every customer metric equals bookings history",
+      "passed": true,
+      "details": []
+    },
+    {
+      "label": "idempotency: Andrea Verdi exists and total_bookings >= 1",
+      "passed": true,
+      "details": [
+        {
+          "id": "87588bd2-8196-4edf-919d-1d8f0c3a738b",
+          "restaurant_id": "6fa5a6a9-0472-44f2-831f-c2cfc6458971",
+          "name": "Andrea Verdi",
+          "phone": "+39 333 3334444",
+          "email": "andrea@example.com",
+          "tags": [],
+          "notes": null,
+          "bad_guest_flag": false,
+          "total_bookings": 1,
+          "no_show_count": 0,
+          "cancelled_count": 0,
+          "created_at": "2026-07-31T15:32:33.993949Z"
+        }
+      ]
+    },
+    {
+      "label": "idempotency: seeded named customer totals are exact",
+      "passed": true,
+      "details": []
+    },
+    {
+      "label": "idempotency: no duplicate customer names",
+      "passed": true,
+      "details": []
+    },
+    {
+      "label": "idempotency: no stored customer starts with literal TEST_",
+      "passed": true,
+      "details": []
+    },
+    {
+      "label": "idempotency: /customers?search=TEST_ returns no literal TEST_ prefix names",
+      "passed": true,
+      "details": []
+    },
+    {
+      "label": "basic_repair setup: API-created table starts at default (0,0)",
+      "passed": true,
+      "details": {
+        "id": "d2771768-1c01-4ff5-86d8-343a5d976647",
+        "restaurant_id": "6fa5a6a9-0472-44f2-831f-c2cfc6458971",
+        "area_id": "80e03c26-7e08-4f5e-8bc0-256367cdc6f7",
+        "name": "QA_STUCK_BASIC",
+        "seats_min": 1,
+        "seats_max": 2,
+        "priority": -100,
+        "bookable_staff": true,
+        "bookable_online": false,
+        "internal_note": null,
+        "shape": "square",
+        "position": {
+          "x": 0.0,
+          "y": 0.0
+        }
+      }
+    },
+    {
+      "label": "basic_repair: no table remains at (0,0)",
+      "passed": true,
+      "details": []
+    },
+    {
+      "label": "basic_repair: no duplicate table positions within the same area",
+      "passed": true,
+      "details": []
+    },
+    {
+      "label": "basic_repair: pre-existing non-stuck table positions were not altered",
+      "passed": true,
+      "details": {}
+    },
+    {
+      "label": "basic_repair: QA_STUCK_BASIC was moved off (0,0)",
+      "passed": true,
+      "details": {
+        "id": "d2771768-1c01-4ff5-86d8-343a5d976647",
+        "restaurant_id": "6fa5a6a9-0472-44f2-831f-c2cfc6458971",
+        "area_id": "80e03c26-7e08-4f5e-8bc0-256367cdc6f7",
+        "name": "QA_STUCK_BASIC",
+        "seats_min": 1,
+        "seats_max": 2,
+        "priority": -100,
+        "bookable_staff": true,
+        "bookable_online": false,
+        "internal_note": null,
+        "shape": "square",
+        "position": {
+          "x": 400.0,
+          "y": 40.0
+        }
+      }
+    },
+    {
+      "label": "basic_repair: every customer metric equals bookings history",
+      "passed": true,
+      "details": []
+    },
+    {
+      "label": "basic_repair: Andrea Verdi exists and total_bookings >= 1",
+      "passed": true,
+      "details": [
+        {
+          "id": "87588bd2-8196-4edf-919d-1d8f0c3a738b",
+          "restaurant_id": "6fa5a6a9-0472-44f2-831f-c2cfc6458971",
+          "name": "Andrea Verdi",
+          "phone": "+39 333 3334444",
+          "email": "andrea@example.com",
+          "tags": [],
+          "notes": null,
+          "bad_guest_flag": false,
+          "total_bookings": 1,
+          "no_show_count": 0,
+          "cancelled_count": 0,
+          "created_at": "2026-07-31T15:32:33.993949Z"
+        }
+      ]
+    },
+    {
+      "label": "basic_repair: no duplicate customer names",
+      "passed": true,
+      "details": []
+    },
+    {
+      "label": "basic_repair: no stored customer starts with literal TEST_",
+      "passed": true,
+      "details": []
+    },
+    {
+      "label": "basic_repair: /customers?search=TEST_ returns no literal TEST_ prefix names",
+      "passed": true,
+      "details": [
+        "AUDIT_TEST_Comet",
+        "test_lower_case_iter5"
+      ]
+    },
+    {
+      "label": "basic_repair: allowed non-literal TEST_ matches are retained",
+      "passed": true,
+      "details": []
+    },
+    {
+      "label": "pre_collision_clean_seed: demo login works after fresh seed",
+      "passed": true,
+      "details": {
+        "id": "798b12d5-b9e0-444d-8763-c376efddce1a",
+        "name": "21Reservation Demo",
+        "subdomain": "demo",
+        "address": "Via Roma 21, Milano",
+        "phone": "+39 02 1234567",
+        "email": "demo@21reservation.app",
+        "description": null,
+        "hero_image_url": null,
+        "theme_preset": null,
+        "accent_color": "#D97706",
+        "language": "it",
+        "currency": "EUR",
+        "timezone": "Europe/Rome",
+        "deposit_enabled": false,
+        "deposit_threshold_persons": 8,
+        "deposit_amount_per_person": 20.0,
+        "avg_ticket_per_guest": 55.0,
+        "reminder_enabled": true,
+        "reminder_lead_hours": 24,
+        "whatsapp_enabled": false,
+        "whatsapp_provider": null,
+        "whatsapp_from": null,
+        "whatsapp_twilio_sid": null,
+        "whatsapp_twilio_auth_token": null,
+        "whatsapp_meta_phone_id": null,
+        "whatsapp_meta_access_token": null,
+        "created_at": "2026-07-31T15:32:43.714594Z"
+      }
+    },
+    {
+      "label": "collision setup: manual table placed at grid slot 8",
+      "passed": true,
+      "details": {
+        "id": "9eda0422-fd63-4e21-9cd2-4f9f1e0e643e",
+        "restaurant_id": "798b12d5-b9e0-444d-8763-c376efddce1a",
+        "area_id": "095c4d24-50ea-4d30-8d50-542c8cdf91ae",
+        "name": "QA_MANUAL_SLOT8",
+        "seats_min": 1,
+        "seats_max": 2,
+        "priority": -100,
+        "bookable_staff": true,
+        "bookable_online": false,
+        "internal_note": null,
+        "shape": "square",
+        "position": {
+          "x": 40.0,
+          "y": 240.0
+        }
+      }
+    },
+    {
+      "label": "collision setup: second table starts stuck at (0,0)",
+      "passed": true,
+      "details": {
+        "id": "5d191ec5-5603-43a5-bdca-ad08361034ed",
+        "restaurant_id": "798b12d5-b9e0-444d-8763-c376efddce1a",
+        "area_id": "095c4d24-50ea-4d30-8d50-542c8cdf91ae",
+        "name": "QA_STUCK_COLLISION",
+        "seats_min": 1,
+        "seats_max": 2,
+        "priority": -100,
+        "bookable_staff": true,
+        "bookable_online": false,
+        "internal_note": null,
+        "shape": "square",
+        "position": {
+          "x": 0.0,
+          "y": 0.0
+        }
+      }
+    },
+    {
+      "label": "collision_edge: no table remains at (0,0)",
+      "passed": true,
+      "details": []
+    },
+    {
+      "label": "collision_edge: no duplicate table positions within the same area",
+      "passed": false,
+      "details": [
+        {
+          "area": "Sala Principale",
+          "position": [
+            40.0,
+            240.0
+          ],
+          "tables": [
+            "QA_MANUAL_SLOT8",
+            "QA_STUCK_COLLISION"
+          ]
+        }
+      ]
+    },
+    {
+      "label": "collision_edge: repaired stuck table did not overlap the existing manual grid-slot table",
+      "passed": false,
+      "details": {
+        "manual": {
+          "id": "9eda0422-fd63-4e21-9cd2-4f9f1e0e643e",
+          "restaurant_id": "798b12d5-b9e0-444d-8763-c376efddce1a",
+          "area_id": "095c4d24-50ea-4d30-8d50-542c8cdf91ae",
+          "name": "QA_MANUAL_SLOT8",
+          "seats_min": 1,
+          "seats_max": 2,
+          "priority": -100,
+          "bookable_staff": true,
+          "bookable_online": false,
+          "internal_note": null,
+          "shape": "square",
+          "position": {
+            "x": 40.0,
+            "y": 240.0
+          }
+        },
+        "stuck_after_repair": {
+          "id": "5d191ec5-5603-43a5-bdca-ad08361034ed",
+          "restaurant_id": "798b12d5-b9e0-444d-8763-c376efddce1a",
+          "area_id": "095c4d24-50ea-4d30-8d50-542c8cdf91ae",
+          "name": "QA_STUCK_COLLISION",
+          "seats_min": 1,
+          "seats_max": 2,
+          "priority": -100,
+          "bookable_staff": true,
+          "bookable_online": false,
+          "internal_note": null,
+          "shape": "square",
+          "position": {
+            "x": 40.0,
+            "y": 240.0
+          }
+        }
+      }
+    },
+    {
+      "label": "final_cleanup_seed: demo login works after fresh seed",
+      "passed": true,
+      "details": {
+        "id": "986352ce-1b06-46f9-80fb-56ac7c8316b1",
+        "name": "21Reservation Demo",
+        "subdomain": "demo",
+        "address": "Via Roma 21, Milano",
+        "phone": "+39 02 1234567",
+        "email": "demo@21reservation.app",
+        "description": null,
+        "hero_image_url": null,
+        "theme_preset": null,
+        "accent_color": "#D97706",
+        "language": "it",
+        "currency": "EUR",
+        "timezone": "Europe/Rome",
+        "deposit_enabled": false,
+        "deposit_threshold_persons": 8,
+        "deposit_amount_per_person": 20.0,
+        "avg_ticket_per_guest": 55.0,
+        "reminder_enabled": true,
+        "reminder_lead_hours": 24,
+        "whatsapp_enabled": false,
+        "whatsapp_provider": null,
+        "whatsapp_from": null,
+        "whatsapp_twilio_sid": null,
+        "whatsapp_twilio_auth_token": null,
+        "whatsapp_meta_phone_id": null,
+        "whatsapp_meta_access_token": null,
+        "created_at": "2026-07-31T15:32:49.297002Z"
+      }
+    },
+    {
+      "label": "final_cleanup_seed: no table remains at (0,0)",
+      "passed": true,
+      "details": []
+    },
+    {
+      "label": "final_cleanup_seed: no duplicate table positions within the same area",
+      "passed": true,
+      "details": []
+    },
+    {
+      "label": "final_cleanup_seed: seeded table positions follow 4-column 120x100 grid per area",
+      "passed": true,
+      "details": []
+    },
+    {
+      "label": "final_cleanup_seed: every customer metric equals bookings history",
+      "passed": true,
+      "details": []
+    },
+    {
+      "label": "final_cleanup_seed: Andrea Verdi exists and total_bookings >= 1",
+      "passed": true,
+      "details": [
+        {
+          "id": "09a3b2a9-a44e-4b57-8ca7-f0bcbbb3675e",
+          "restaurant_id": "986352ce-1b06-46f9-80fb-56ac7c8316b1",
+          "name": "Andrea Verdi",
+          "phone": "+39 333 3334444",
+          "email": "andrea@example.com",
+          "tags": [],
+          "notes": null,
+          "bad_guest_flag": false,
+          "total_bookings": 1,
+          "no_show_count": 0,
+          "cancelled_count": 0,
+          "created_at": "2026-07-31T15:32:49.752282Z"
+        }
+      ]
+    },
+    {
+      "label": "final_cleanup_seed: seeded named customer totals are exact",
+      "passed": true,
+      "details": []
+    },
+    {
+      "label": "final_cleanup_seed: no duplicate customer names",
+      "passed": true,
+      "details": []
+    }
+  ],
+  "evidence": {
+    "fresh_seed_drop": {
+      "restaurant_found": true,
+      "collections": {
+        "opening_hours": 8,
+        "bookings": 18,
+        "tables": 11,
+        "waitlist": 1,
+        "users": 2,
+        "areas": 3,
+        "customers": 12,
+        "restaurants_by_id_extra": 1
+      }
+    },
+    "fresh_seed_tables": {
+      "count": 11,
+      "positions_by_name": {
+        "T1": {
+          "area": "Sala Principale",
+          "position": {
+            "x": 40.0,
+            "y": 40.0
+          }
+        },
+        "T2": {
+          "area": "Sala Principale",
+          "position": {
+            "x": 160.0,
+            "y": 40.0
+          }
+        },
+        "T3": {
+          "area": "Sala Principale",
+          "position": {
+            "x": 280.0,
+            "y": 40.0
+          }
+        },
+        "T4": {
+          "area": "Sala Principale",
+          "position": {
+            "x": 400.0,
+            "y": 40.0
+          }
+        },
+        "T5": {
+          "area": "Sala Principale",
+          "position": {
+            "x": 40.0,
+            "y": 140.0
+          }
+        },
+        "T6": {
+          "area": "Sala Principale",
+          "position": {
+            "x": 160.0,
+            "y": 140.0
+          }
+        },
+        "T7": {
+          "area": "Sala Principale",
+          "position": {
+            "x": 280.0,
+            "y": 140.0
+          }
+        },
+        "D1": {
+          "area": "Dehors",
+          "position": {
+            "x": 40.0,
+            "y": 40.0
+          }
+        },
+        "D2": {
+          "area": "Dehors",
+          "position": {
+            "x": 160.0,
+            "y": 40.0
+          }
+        },
+        "D3": {
+          "area": "Dehors",
+          "position": {
+            "x": 280.0,
+            "y": 40.0
+          }
+        },
+        "Private-1": {
+          "area": "Sala Privata",
+          "position": {
+            "x": 40.0,
+            "y": 40.0
+          }
+        }
+      }
+    },
+    "fresh_seed_customers": {
+      "count": 4,
+      "names": [
+        "Andrea Verdi",
+        "Chiara Blu",
+        "Giulia Neri",
+        "Luca Ferrari"
+      ]
+    },
+    "idempotency_tables": {
+      "count": 11,
+      "positions_by_name": {
+        "T1": {
+          "area": "Sala Principale",
+          "position": {
+            "x": 40.0,
+            "y": 40.0
+          }
+        },
+        "T2": {
+          "area": "Sala Principale",
+          "position": {
+            "x": 160.0,
+            "y": 40.0
+          }
+        },
+        "T3": {
+          "area": "Sala Principale",
+          "position": {
+            "x": 280.0,
+            "y": 40.0
+          }
+        },
+        "T4": {
+          "area": "Sala Principale",
+          "position": {
+            "x": 400.0,
+            "y": 40.0
+          }
+        },
+        "T5": {
+          "area": "Sala Principale",
+          "position": {
+            "x": 40.0,
+            "y": 140.0
+          }
+        },
+        "T6": {
+          "area": "Sala Principale",
+          "position": {
+            "x": 160.0,
+            "y": 140.0
+          }
+        },
+        "T7": {
+          "area": "Sala Principale",
+          "position": {
+            "x": 280.0,
+            "y": 140.0
+          }
+        },
+        "D1": {
+          "area": "Dehors",
+          "position": {
+            "x": 40.0,
+            "y": 40.0
+          }
+        },
+        "D2": {
+          "area": "Dehors",
+          "position": {
+            "x": 160.0,
+            "y": 40.0
+          }
+        },
+        "D3": {
+          "area": "Dehors",
+          "position": {
+            "x": 280.0,
+            "y": 40.0
+          }
+        },
+        "Private-1": {
+          "area": "Sala Privata",
+          "position": {
+            "x": 40.0,
+            "y": 40.0
+          }
+        }
+      }
+    },
+    "idempotency_customers": {
+      "count": 4,
+      "names": [
+        "Andrea Verdi",
+        "Chiara Blu",
+        "Giulia Neri",
+        "Luca Ferrari"
+      ]
+    },
+    "basic_repair_tables": {
+      "count": 12,
+      "positions_by_name": {
+        "T1": {
+          "area": "Sala Principale",
+          "position": {
+            "x": 40.0,
+            "y": 40.0
+          }
+        },
+        "T2": {
+          "area": "Sala Principale",
+          "position": {
+            "x": 160.0,
+            "y": 40.0
+          }
+        },
+        "T3": {
+          "area": "Sala Principale",
+          "position": {
+            "x": 280.0,
+            "y": 40.0
+          }
+        },
+        "T4": {
+          "area": "Sala Principale",
+          "position": {
+            "x": 400.0,
+            "y": 40.0
+          }
+        },
+        "T5": {
+          "area": "Sala Principale",
+          "position": {
+            "x": 40.0,
+            "y": 140.0
+          }
+        },
+        "T6": {
+          "area": "Sala Principale",
+          "position": {
+            "x": 160.0,
+            "y": 140.0
+          }
+        },
+        "T7": {
+          "area": "Sala Principale",
+          "position": {
+            "x": 280.0,
+            "y": 140.0
+          }
+        },
+        "D1": {
+          "area": "Dehors",
+          "position": {
+            "x": 40.0,
+            "y": 40.0
+          }
+        },
+        "D2": {
+          "area": "Dehors",
+          "position": {
+            "x": 160.0,
+            "y": 40.0
+          }
+        },
+        "D3": {
+          "area": "Dehors",
+          "position": {
+            "x": 280.0,
+            "y": 40.0
+          }
+        },
+        "Private-1": {
+          "area": "Sala Privata",
+          "position": {
+            "x": 40.0,
+            "y": 40.0
+          }
+        },
+        "QA_STUCK_BASIC": {
+          "area": "Dehors",
+          "position": {
+            "x": 400.0,
+            "y": 40.0
+          }
+        }
+      }
+    },
+    "basic_repair_customers": {
+      "count": 6,
+      "names": [
+        "AUDIT_TEST_Comet",
+        "Andrea Verdi",
+        "Chiara Blu",
+        "Giulia Neri",
+        "Luca Ferrari",
+        "test_lower_case_iter5"
+      ]
+    },
+    "pre_collision_clean_seed_drop": {
+      "restaurant_found": true,
+      "collections": {
+        "opening_hours": 8,
+        "bookings": 6,
+        "tables": 12,
+        "users": 2,
+        "areas": 3,
+        "customers": 6,
+        "restaurants_by_id_extra": 1
+      }
+    },
+    "collision_edge_tables": {
+      "count": 13,
+      "positions_by_name": {
+        "T1": {
+          "area": "Sala Principale",
+          "position": {
+            "x": 40.0,
+            "y": 40.0
+          }
+        },
+        "T2": {
+          "area": "Sala Principale",
+          "position": {
+            "x": 160.0,
+            "y": 40.0
+          }
+        },
+        "T3": {
+          "area": "Sala Principale",
+          "position": {
+            "x": 280.0,
+            "y": 40.0
+          }
+        },
+        "T4": {
+          "area": "Sala Principale",
+          "position": {
+            "x": 400.0,
+            "y": 40.0
+          }
+        },
+        "T5": {
+          "area": "Sala Principale",
+          "position": {
+            "x": 40.0,
+            "y": 140.0
+          }
+        },
+        "T6": {
+          "area": "Sala Principale",
+          "position": {
+            "x": 160.0,
+            "y": 140.0
+          }
+        },
+        "T7": {
+          "area": "Sala Principale",
+          "position": {
+            "x": 280.0,
+            "y": 140.0
+          }
+        },
+        "D1": {
+          "area": "Dehors",
+          "position": {
+            "x": 40.0,
+            "y": 40.0
+          }
+        },
+        "D2": {
+          "area": "Dehors",
+          "position": {
+            "x": 160.0,
+            "y": 40.0
+          }
+        },
+        "D3": {
+          "area": "Dehors",
+          "position": {
+            "x": 280.0,
+            "y": 40.0
+          }
+        },
+        "Private-1": {
+          "area": "Sala Privata",
+          "position": {
+            "x": 40.0,
+            "y": 40.0
+          }
+        },
+        "QA_MANUAL_SLOT8": {
+          "area": "Sala Principale",
+          "position": {
+            "x": 40.0,
+            "y": 240.0
+          }
+        },
+        "QA_STUCK_COLLISION": {
+          "area": "Sala Principale",
+          "position": {
+            "x": 40.0,
+            "y": 240.0
+          }
+        }
+      }
+    },
+    "final_cleanup_seed_drop": {
+      "restaurant_found": true,
+      "collections": {
+        "opening_hours": 8,
+        "bookings": 6,
+        "tables": 13,
+        "users": 2,
+        "areas": 3,
+        "customers": 4,
+        "restaurants_by_id_extra": 1
+      }
+    },
+    "final_cleanup_seed_tables": {
+      "count": 11,
+      "positions_by_name": {
+        "T1": {
+          "area": "Sala Principale",
+          "position": {
+            "x": 40.0,
+            "y": 40.0
+          }
+        },
+        "T2": {
+          "area": "Sala Principale",
+          "position": {
+            "x": 160.0,
+            "y": 40.0
+          }
+        },
+        "T3": {
+          "area": "Sala Principale",
+          "position": {
+            "x": 280.0,
+            "y": 40.0
+          }
+        },
+        "T4": {
+          "area": "Sala Principale",
+          "position": {
+            "x": 400.0,
+            "y": 40.0
+          }
+        },
+        "T5": {
+          "area": "Sala Principale",
+          "position": {
+            "x": 40.0,
+            "y": 140.0
+          }
+        },
+        "T6": {
+          "area": "Sala Principale",
+          "position": {
+            "x": 160.0,
+            "y": 140.0
+          }
+        },
+        "T7": {
+          "area": "Sala Principale",
+          "position": {
+            "x": 280.0,
+            "y": 140.0
+          }
+        },
+        "D1": {
+          "area": "Dehors",
+          "position": {
+            "x": 40.0,
+            "y": 40.0
+          }
+        },
+        "D2": {
+          "area": "Dehors",
+          "position": {
+            "x": 160.0,
+            "y": 40.0
+          }
+        },
+        "D3": {
+          "area": "Dehors",
+          "position": {
+            "x": 280.0,
+            "y": 40.0
+          }
+        },
+        "Private-1": {
+          "area": "Sala Privata",
+          "position": {
+            "x": 40.0,
+            "y": 40.0
+          }
+        }
+      }
+    },
+    "final_cleanup_seed_customers": {
+      "count": 4,
+      "names": [
+        "Andrea Verdi",
+        "Chiara Blu",
+        "Giulia Neri",
+        "Luca Ferrari"
+      ]
+    }
+  }
+}
