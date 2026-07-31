@@ -9,8 +9,9 @@ const SOURCES = ["phone", "online", "walkin"];
 
 function todayStr() { return new Date().toISOString().slice(0, 10); }
 
-export default function NewBookingModal({ open, onClose, onCreated, defaultDate, tables = [], areas = [] }) {
+export default function NewBookingModal({ open, onClose, onCreated, defaultDate, tables = [], areas = [], booking = null, customers = [] }) {
   const { t } = useI18n();
+  const isEdit = !!booking;
   const [form, setForm] = useState(() => ({
     date: defaultDate || todayStr(),
     time: "20:00",
@@ -27,6 +28,31 @@ export default function NewBookingModal({ open, onClose, onCreated, defaultDate,
   }));
   const [suggestion, setSuggestion] = useState(null);
   const [busy, setBusy] = useState(false);
+
+  // Sync form with the incoming booking when the modal opens in edit mode
+  React.useEffect(() => {
+    if (!open) return;
+    if (booking) {
+      const c = customers.find((x) => x.id === booking.customer_id);
+      setForm({
+        date: booking.date,
+        time: booking.time,
+        persons: booking.persons,
+        duration_minutes: booking.duration_minutes ?? "",
+        source: booking.source || "phone",
+        status: booking.status || "accepted",
+        table_ids: booking.table_ids || [],
+        customer_name: c?.name || "",
+        customer_phone: c?.phone || "",
+        customer_email: c?.email || "",
+        guest_message: booking.guest_message || "",
+        internal_note: booking.internal_note || "",
+      });
+    } else {
+      setForm((f) => ({ ...f, date: defaultDate || todayStr(), table_ids: [] }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, booking?.id]);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -69,29 +95,46 @@ export default function NewBookingModal({ open, onClose, onCreated, defaultDate,
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!form.customer_name && !form.customer_phone && !form.customer_email) {
+    if (!isEdit && !form.customer_name && !form.customer_phone && !form.customer_email) {
       toast.error("Serve almeno un dato cliente");
       return;
     }
     setBusy(true);
     try {
-      const payload = {
-        date: form.date,
-        time: form.time,
-        persons: Number(form.persons),
-        duration_minutes: form.duration_minutes ? Number(form.duration_minutes) : undefined,
-        source: form.source,
-        status: form.status,
-        table_ids: form.table_ids.length ? form.table_ids : undefined,
-        customer_name: form.customer_name || undefined,
-        customer_phone: form.customer_phone || undefined,
-        customer_email: form.customer_email || undefined,
-        guest_message: form.guest_message || undefined,
-        internal_note: form.internal_note || undefined,
-      };
-      const { data } = await api.post("/bookings", payload);
-      toast.success("Prenotazione creata");
-      onCreated?.(data);
+      if (isEdit) {
+        const patch = {
+          date: form.date,
+          time: form.time,
+          persons: Number(form.persons),
+          duration_minutes: form.duration_minutes ? Number(form.duration_minutes) : undefined,
+          source: form.source,
+          status: form.status,
+          table_ids: form.table_ids,
+          guest_message: form.guest_message || undefined,
+          internal_note: form.internal_note || undefined,
+        };
+        const { data } = await api.patch(`/bookings/${booking.id}`, patch);
+        toast.success("Prenotazione aggiornata");
+        onCreated?.(data);
+      } else {
+        const payload = {
+          date: form.date,
+          time: form.time,
+          persons: Number(form.persons),
+          duration_minutes: form.duration_minutes ? Number(form.duration_minutes) : undefined,
+          source: form.source,
+          status: form.status,
+          table_ids: form.table_ids.length ? form.table_ids : undefined,
+          customer_name: form.customer_name || undefined,
+          customer_phone: form.customer_phone || undefined,
+          customer_email: form.customer_email || undefined,
+          guest_message: form.guest_message || undefined,
+          internal_note: form.internal_note || undefined,
+        };
+        const { data } = await api.post("/bookings", payload);
+        toast.success("Prenotazione creata");
+        onCreated?.(data);
+      }
       onClose();
     } catch (err) {
       toast.error(err?.response?.data?.detail || "Errore");
@@ -106,7 +149,7 @@ export default function NewBookingModal({ open, onClose, onCreated, defaultDate,
         <div className="flex items-center justify-between p-5 border-b border-zinc-200">
           <div>
             <div className="label-eyebrow">21Reservation</div>
-            <h2 className="font-serif-display text-3xl">{t("common.new_booking")}</h2>
+            <h2 className="font-serif-display text-3xl">{isEdit ? "Modifica prenotazione" : t("common.new_booking")}</h2>
           </div>
           <button data-testid="modal-close" onClick={onClose} className="p-2 hover:bg-zinc-100 rounded-md">
             <X size={18} />

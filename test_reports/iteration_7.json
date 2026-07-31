@@ -1,0 +1,26 @@
+{
+  "summary": "Iteration 7 — verified new 'Edit Booking' feature end-to-end. Backend: 7/7 pytest tests passed for PATCH /api/bookings/{bid} (multi-field update, partial updates, status change history+metrics+waitlist trigger, 404 on unknown id, 401/403 without JWT) plus full CRUD non-regression. Frontend: on /bookings/list clicking a booking row opens NewBookingModal in Edit mode (title 'Modifica prenotazione') with all fields prefilled; nb-submit persists edits and closes the modal; quick-action buttons (accept/decline/seated/no_show) do NOT open the modal (stopPropagation works); on /bookings/timeline clicking a tl-block-<id> opens the same modal in edit mode; list-new-booking opens the modal in create mode (title 'Nuova prenotazione').",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iteration7_edit_booking.py",
+    "/app/test_reports/pytest/iteration7_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "BookingsTimeline: onCreated={() => setEditingBooking(null)} does not call refresh(); relies on the 5s polling window. Minor — timeline updates within a few seconds anyway.",
+    "server.py is now 1319 lines — approaching the 700-line guideline; consider splitting bookings/waitlist/payments into separate routers.",
+    "NewBookingModal edit-mode does NOT allow changing the customer even though the customer_* inputs remain visible; PATCH endpoint also has no customer switch. Non-blocking, but the visible-but-ignored fields may confuse staff (form submit ignores customer_* in edit mode)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration7_edit_booking.py",
+    "/app/test_reports/iteration_7.json",
+    "/app/test_reports/pytest/iteration7_results.xml"
+  ],
+  "success_rate": {"backend": "100% (7/7)", "frontend": "100% (all 5 flows)"},
+  "test_credentials": "owner@demo.com / demo1234",
+  "seed_data_creation": "Test fixtures created transient bookings named 'QA Edit <ts>' / 'QA Regr <ts>' on the next-open weekday; all cleaned up via DELETE /api/bookings/{id} in fixture teardown or the regression test itself.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Edit Booking feature (frontend + backend) is validated. Backend regression: pytest /app/backend/tests/test_iteration7_edit_booking.py — 7 passed. Frontend flows are stable via data-testid: booking-row-<id>, new-booking-modal, nb-* form fields, action-accept/decline/seated/noshow-<id>, tl-block-<id>, list-new-booking. Demo seed contains bookings on 2026-07-31 (Luca Ferrari 19:30/T1, Giulia Neri 20:00/T3, Andrea Verdi 20:30/T5). Note: modal shows customer_* inputs in edit mode but backend PATCH does not support switching customer — a UX improvement, not a bug."
+}

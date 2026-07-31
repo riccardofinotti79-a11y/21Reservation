@@ -486,8 +486,19 @@ async def update_booking(bid: str, body: BookingUpdate, cur=Depends(get_current_
     if not existing:
         raise HTTPException(404, "Booking not found")
     upd = {k: v for k, v in body.model_dump(exclude_unset=True).items() if v is not None}
+    old_status = existing.get("status")
+    new_status = upd.get("status")
+    if new_status and new_status != old_status:
+        history = existing.get("status_history", []) or []
+        history.append({"status": new_status, "at": utc_now().isoformat(), "by_user_id": cur["user_id"]})
+        upd["status_history"] = history
     if upd:
         await db.bookings.update_one({"id": bid}, {"$set": upd})
+    if new_status and new_status != old_status:
+        await _recompute_customer_metrics(existing["customer_id"])
+        if new_status in ("cancelled", "declined", "no_show"):
+            date_target = upd.get("date") or existing["date"]
+            await _try_notify_waitlist(cur["restaurant_id"], date_target)
     doc = await db.bookings.find_one({"id": bid}, NO_ID)
     return Booking(**doc)
 

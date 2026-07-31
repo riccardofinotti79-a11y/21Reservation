@@ -28,6 +28,10 @@ export default function BookingsList() {
   const bookings = data?.bookings || [];
   const tables = data?.tables || [];
   const customers = data?.customers || [];
+  const [editingBooking, setEditingBooking] = useState(null);
+  const openEdit = (b) => { setEditingBooking(b); setModalOpen(true); };
+  const openNew = () => { setEditingBooking(null); setModalOpen(true); };
+  const stop = (e) => { e.stopPropagation(); };
   const customerById = useMemo(() => {
     const m = {}; customers.forEach((c) => (m[c.id] = c)); return m;
   }, [customers]);
@@ -58,7 +62,7 @@ export default function BookingsList() {
                   className="px-3 py-2 border border-zinc-200 rounded-md text-sm hover:bg-zinc-100">
             {t("common.today")}
           </button>
-          <button data-testid="list-new-booking" onClick={() => setModalOpen(true)}
+          <button data-testid="list-new-booking" onClick={openNew}
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-zinc-900 text-white hover:bg-zinc-700 transition-colors">
             <Plus size={16} /> {t("common.new_booking")}
           </button>
@@ -114,7 +118,10 @@ export default function BookingsList() {
                 const c = customerById[b.customer_id];
                 const tbls = (b.table_ids || []).map((id) => tableById[id]?.name || id).join(", ");
                 return (
-                  <tr key={b.id} className="border-b border-zinc-100 hover:bg-zinc-50/50 transition-colors" data-testid={`booking-row-${b.id}`}>
+                  <tr key={b.id}
+                      onClick={() => openEdit(b)}
+                      className="border-b border-zinc-100 hover:bg-zinc-50/50 transition-colors cursor-pointer"
+                      data-testid={`booking-row-${b.id}`}>
                     <td className="px-4 py-3 font-mono">{b.time}</td>
                     <td className="px-4 py-3">
                       <div className="font-medium text-zinc-900">{c?.name || "—"}</div>
@@ -124,17 +131,17 @@ export default function BookingsList() {
                     <td className="px-4 py-3">{tbls || "—"}</td>
                     <td className="px-4 py-3 text-xs uppercase text-zinc-500 tracking-wider">{t(`source.${b.source}`)}</td>
                     <td className="px-4 py-3"><StatusBadge status={b.status} /></td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3" onClick={stop}>
                       <div className="flex items-center justify-end gap-1">
                         {b.status === "pending" && (
                           <>
                             <button data-testid={`action-accept-${b.id}`} title={t("status.accepted")}
-                                    onClick={() => setStatus(b.id, "accepted")}
+                                    onClick={(e) => { stop(e); setStatus(b.id, "accepted"); }}
                                     className="p-1.5 rounded hover:bg-emerald-100 text-emerald-700">
                               <Check size={16} />
                             </button>
                             <button data-testid={`action-decline-${b.id}`} title={t("status.declined")}
-                                    onClick={() => setStatus(b.id, "declined")}
+                                    onClick={(e) => { stop(e); setStatus(b.id, "declined"); }}
                                     className="p-1.5 rounded hover:bg-red-100 text-red-700">
                               <XIcon size={16} />
                             </button>
@@ -142,14 +149,14 @@ export default function BookingsList() {
                         )}
                         {b.status === "accepted" && (
                           <button data-testid={`action-seated-${b.id}`} title={t("status.seated")}
-                                  onClick={() => setStatus(b.id, "seated")}
+                                  onClick={(e) => { stop(e); setStatus(b.id, "seated"); }}
                                   className="p-1.5 rounded hover:bg-blue-100 text-blue-700">
                             <UserCheck size={16} />
                           </button>
                         )}
                         {(b.status === "accepted" || b.status === "seated") && (
                           <button data-testid={`action-noshow-${b.id}`} title={t("status.no_show")}
-                                  onClick={() => setStatus(b.id, "no_show")}
+                                  onClick={(e) => { stop(e); setStatus(b.id, "no_show"); }}
                                   className="p-1.5 rounded hover:bg-slate-100 text-slate-700">
                             <Ghost size={16} />
                           </button>
@@ -165,11 +172,13 @@ export default function BookingsList() {
 
       <NewBookingModal
         open={modalOpen}
-        onClose={() => setModalOpen(false)}
+        onClose={() => { setModalOpen(false); setEditingBooking(null); }}
         onCreated={() => refresh()}
         defaultDate={date}
         tables={tables}
         areas={data?.areas || []}
+        customers={customers}
+        booking={editingBooking}
       />
     </div>
   );

@@ -339,6 +339,8 @@ class BookingUpdate(BaseModel):
     table_ids: Optional[List[str]] = None
     guest_message: Optional[str] = None
     internal_note: Optional[str] = None
+    status: Optional[BookingStatus] = None
+    source: Optional[BookingSource] = None
 
 
 class BookingStatusUpdate(BaseModel):

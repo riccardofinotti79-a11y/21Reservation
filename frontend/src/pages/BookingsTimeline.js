@@ -3,6 +3,7 @@ import api from "../api";
 import usePolling from "../usePolling";
 import { useI18n } from "../i18n";
 import { STATUS_HEX } from "../StatusBadge";
+import NewBookingModal from "../NewBookingModal";
 
 function todayStr() { return new Date().toISOString().slice(0, 10); }
 function hhmm(mins) { return `${String(Math.floor(mins/60)).padStart(2,"0")}:${String(mins%60).padStart(2,"0")}`; }
@@ -16,6 +17,7 @@ export default function BookingsTimeline() {
   const [date, setDate] = useState(todayStr());
   const gridRef = useRef(null);
   const [gridWidth, setGridWidth] = useState(0);
+  const [editingBooking, setEditingBooking] = useState(null);
 
   const fetchAll = useCallback(async () => {
     const [b, tb, ar, cu, oh] = await Promise.all([
@@ -188,6 +190,7 @@ export default function BookingsTimeline() {
                         key={b.id}
                         data-testid={`tl-block-${b.id}`}
                         title={`${b.time} · ${c?.name || ""} · ${b.persons}p · ${t(`status.${b.status}`)}`}
+                        onClick={() => setEditingBooking(b)}
                         className="absolute rounded-md text-white shadow-sm overflow-hidden cursor-pointer hover:z-10 hover:-translate-y-0.5 transition-transform"
                         style={{
                           left: `${left}%`,
@@ -234,6 +237,17 @@ export default function BookingsTimeline() {
           {tableCount} tavoli · {hhmm(startMin)} → {hhmm(endMin)}
         </div>
       </div>
+
+      <NewBookingModal
+        open={!!editingBooking}
+        onClose={() => setEditingBooking(null)}
+        onCreated={() => setEditingBooking(null)}
+        defaultDate={date}
+        tables={tables}
+        areas={areas}
+        customers={customers}
+        booking={editingBooking}
+      />
     </div>
   );
 }
