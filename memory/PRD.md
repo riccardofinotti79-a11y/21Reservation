@@ -227,3 +227,11 @@ Stack: FastAPI + MongoDB + React/Tailwind + JWT auth + 5s polling + Resend email
   * Header ore, righe area, righe tavolo con varianti `dark:` (`bg-zinc-900`, `border-zinc-800`, `text-zinc-100/300/400`); righe area `bg-zinc-50 dark:bg-zinc-800/60`.
   * Blocchi prenotazione ora usano coordinate/width in `px` (non %) — nessuna dipendenza da ResizeObserver.
 - Verifica a 375px in dark: `docSW==docCW=375`, inner `scrollWidth=418 vs clientWidth=341`, grid bg `rgb(24,24,27)`, ore `19:00 20:00 21:00 22:00` distinte, tap su `tl-block-*` apre il modale, sticky column resta fissa durante `scrollLeft=200`.
+
+## Iteration 15 (2026-02-15) — NewBookingModal: dark + mobile
+- Riscrittura `NewBookingModal.js` con struttura header sticky / body scrollabile / footer sticky (`flex flex-col`).
+- Dark mode: contenitore `bg-white dark:bg-zinc-900`, bordi `dark:border-zinc-800`, titolo `text-zinc-900 dark:text-zinc-100`, close button `dark:hover:bg-zinc-800`, chip tavoli con variante dark (selezionato invertito, candidato `dark:bg-emerald-950/40`, disabile `dark:text-zinc-300 opacity-60`). Bottone Salva anche in dark inverte a `dark:bg-zinc-100 dark:text-zinc-900`.
+- Mobile: modale fullscreen (`h-full sm:h-auto`, `rounded-none sm:rounded-lg`), backdrop con `touch-action: pan-y` per bloccare il pan orizzontale, body con `overflow-y-auto overflow-x-hidden overscroll-contain`.
+- Body scroll lock: `useEffect` setta `document.body.style.overflow="hidden"` all'apertura e ripristina alla chiusura.
+- Input tokenizzato via `inputCls` con `text-base sm:text-sm` (16px su mobile) + `w-full`.
+- Verifica 375px dark: modale bg `rgb(24,24,27)`, titolo `rgb(244,244,245)`, panel scrollWidth==clientWidth==375, body lock attivo, edit + save funzionanti.
