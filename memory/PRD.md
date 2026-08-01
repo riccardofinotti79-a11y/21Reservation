@@ -242,3 +242,8 @@ Stack: FastAPI + MongoDB + React/Tailwind + JWT auth + 5s polling + Resend email
 - `STATUS_CLS` per waiting/notified/converted/expired/cancelled ora ha varianti `dark:*-950/60 / -200 / -800/60` (stesso schema di StatusBadge).
 - Mobile: `p-4 sm:p-8` sull'outer, filtro `w-full sm:w-auto` con `text-base sm:text-sm`, azioni ≥40×40px con bordo colorato per contrasto, `overflow-x-auto` intorno alla tabella desktop.
 - Verifica 375px dark: `docSW==docCW==375` (nessun page overflow), background container `rgb(24,24,27)`, filter select full-width, card rows visibili con etichetta:valore. Anche a 320px nessun overflow.
+
+## Iteration 17 (2026-02-15) — FloorPlan: mobile reachability fix
+- `FloorPlan.js`: canvas 900x600 ora avvolto in wrapper `[data-testid=plan-scroll]` con `overflow-auto` + `WebkitOverflowScrolling: touch` e `maxHeight: min(70vh, 640px)`. Rimosso `maxWidth: 100%` dal canvas interno così mantiene la dimensione logica → tavoli fuori viewport diventano raggiungibili scorrendo.
+- Aggiunte varianti dark su outer padding, titolo, testo, chip aree, bottone Salva (`bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900`).
+- Verificato da testing agent (report `/app/test_reports/iteration_8.json`, success 100%): a 375px T4 raggiungibile scrollando `plan-scroll` (offsetLeft=460, dopo `scrollTo({left:440})` T4 rect entra nel container rect); a 460px stesso; a 1440px tutti T1..T7 visibili senza scroll; `docSW==docCW==375` (nessuno scroll orizzontale documento); cambio area chip funziona; drag&drop desktop snap 20px OK, `PATCH /api/tables/{id}` 200, counter reset a (0).
