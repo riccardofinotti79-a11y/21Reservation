@@ -218,3 +218,12 @@ Stack: FastAPI + MongoDB + React/Tailwind + JWT auth + 5s polling + Resend email
 - `StatusBadge`: aggiunte varianti `dark:bg-{color}-950/60 dark:text-{color}-200 dark:border-{color}-800/60` per tutti i 6 status (pending/accepted/seated/declined/no_show/cancelled).
 - Contrasto: date/time input in BookingsList, CustomerDetail, Reports ora forzano `dark:text-zinc-100` per superare l'auto-color nero del native picker su bg scuro.
 - Verificato a 375px in dark mode: `docSW==docCW` su tutte le 7 pagine; sfondo card `rgb(24,24,27)` (zinc-900); testi/badge leggibili; light mode invariato.
+
+## Iteration 14 (2026-02-15) — Timeline: dark + mobile scroll
+- `BookingsTimeline.js` riscritta:
+  * Layout ora usa una griglia oraria a larghezza fissa (`PX_PER_HOUR=56`) invece del layout percentuale che comprimeva le ore su schermo stretto.
+  * Contenitore interno `overflow-x-auto` con `-webkit-overflow-scrolling: touch` per lo scroll fluido; mai overflow di pagina.
+  * Colonna tavoli/aree `sticky left-0 z-10 bg-white dark:bg-zinc-900` per restare visibile durante lo scroll orizzontale.
+  * Header ore, righe area, righe tavolo con varianti `dark:` (`bg-zinc-900`, `border-zinc-800`, `text-zinc-100/300/400`); righe area `bg-zinc-50 dark:bg-zinc-800/60`.
+  * Blocchi prenotazione ora usano coordinate/width in `px` (non %) — nessuna dipendenza da ResizeObserver.
+- Verifica a 375px in dark: `docSW==docCW=375`, inner `scrollWidth=418 vs clientWidth=341`, grid bg `rgb(24,24,27)`, ore `19:00 20:00 21:00 22:00` distinte, tap su `tl-block-*` apre il modale, sticky column resta fissa durante `scrollLeft=200`.
