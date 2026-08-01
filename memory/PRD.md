@@ -190,9 +190,9 @@ Stack: FastAPI + MongoDB + React/Tailwind + JWT auth + 5s polling + Resend email
 - `BookingsTimeline` relies on the 5s polling to refresh after an edit (no explicit refresh call).
 - `server.py` LOC = 1319; split into routers deferred (P1 backlog).
 
-## Iteration 8 (2026-02-15) — PublicBooking UX polish
-- Inline field validation on step 4 (Contatti): required + regex format for email (`^[^\s@]+@[^\s@]+\.[^\s@]{2,}$`) and phone (`^\+?[0-9\s().-]{7,}$`); errors surface `onBlur` per field, red border + red text under the input (testids `err-contact-name/email/phone`).
-- Submit button stays disabled until name/email/phone/terms are all valid (regex included) — the AI-slop "silent disabled button" is gone.
-- Terms & Privacy inside the accept-checkbox are now clickable buttons (`terms-link`, `privacy-link`) that open an in-page modal (`legal-modal`) with the respective document — no route change, works also in `?embed=1`.
-- New i18n keys (IT + EN): `book.terms_accept_prefix`, `book.terms_link`, `book.terms_and`, `book.privacy_link`, `book.terms_title`, `book.privacy_title`, `book.close`, `book.error_required`, `book.error_email`, `book.error_phone`.
-- Scope contenuto: solo `PublicBooking.js` + `i18n.js`. Nessun cambio backend, nessuna nuova route.
+## Iteration 9 (2026-02-15) — BookingsList search & filters
+- `BookingsList.js`: nuova barra client-side con ricerca full-text su nome/telefono cliente (`list-search`), select stato (`list-filter-status`, 6 valori: all/pending/accepted/seated/declined/no_show/cancelled) e select sorgente (`list-filter-source`: all/phone/online/walkin). Combinabili tra loro e con il selettore data esistente. Chip `list-filter-clear` visibile quando c'è almeno un filtro attivo. Contatore `list-filter-count` mostra `filtered / total`.
+- Contatori KPI in alto (`stat-bookings`, `stat-guests`, `stat-pending`, `stat-seated`) restano sul totale del giorno, invariati.
+- Comportamento riga (apre modale in edit) e quick-action (accept/decline/seated/no_show con `stopPropagation`) invariati.
+- Nuove chiavi i18n IT+EN: `common.search_placeholder`, `common.all_statuses`, `common.all_sources`, `common.clear_filters`, `common.no_results`.
+- Scope: solo `BookingsList.js` + `i18n.js`. Nessun cambio backend, nessun reload.

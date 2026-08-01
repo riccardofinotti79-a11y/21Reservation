@@ -13,6 +13,9 @@ export default function BookingsList() {
   const { t, lang } = useI18n();
   const [date, setDate] = useState(todayStr());
   const [modalOpen, setModalOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [sourceFilter, setSourceFilter] = useState("all");
 
   const fetchBookings = useCallback(async () => {
     const [b, tb, ar, cu] = await Promise.all([
@@ -42,6 +45,21 @@ export default function BookingsList() {
   const totalGuests = bookings
     .filter((b) => ["pending", "accepted", "seated"].includes(b.status))
     .reduce((s, b) => s + b.persons, 0);
+
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredBookings = useMemo(() => {
+    return bookings.filter((b) => {
+      if (statusFilter !== "all" && b.status !== statusFilter) return false;
+      if (sourceFilter !== "all" && b.source !== sourceFilter) return false;
+      if (normalizedQuery) {
+        const c = customerById[b.customer_id];
+        const name = (c?.name || "").toLowerCase();
+        const phone = (c?.phone || "").toLowerCase();
+        if (!name.includes(normalizedQuery) && !phone.includes(normalizedQuery)) return false;
+      }
+      return true;
+    });
+  }, [bookings, statusFilter, sourceFilter, normalizedQuery, customerById]);
 
   const setStatus = async (id, status) => {
     try { await api.post(`/bookings/${id}/status`, { status }); toast.success("Aggiornato"); refresh(); }
@@ -92,6 +110,42 @@ export default function BookingsList() {
         </div>
       </div>
 
+      <div className="bg-white border border-zinc-200 rounded-lg p-4 mb-4 flex flex-wrap items-center gap-3">
+        <input data-testid="list-search" type="search" value={query}
+               onChange={(e) => setQuery(e.target.value)}
+               placeholder={t("common.search_placeholder")}
+               className="flex-1 min-w-[200px] border border-zinc-200 rounded-md px-3 py-2 text-sm" />
+        <select data-testid="list-filter-status" value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="border border-zinc-200 rounded-md px-3 py-2 text-sm bg-white">
+          <option value="all">{t("common.all_statuses")}</option>
+          <option value="pending">{t("status.pending")}</option>
+          <option value="accepted">{t("status.accepted")}</option>
+          <option value="seated">{t("status.seated")}</option>
+          <option value="declined">{t("status.declined")}</option>
+          <option value="no_show">{t("status.no_show")}</option>
+          <option value="cancelled">{t("status.cancelled")}</option>
+        </select>
+        <select data-testid="list-filter-source" value={sourceFilter}
+                onChange={(e) => setSourceFilter(e.target.value)}
+                className="border border-zinc-200 rounded-md px-3 py-2 text-sm bg-white">
+          <option value="all">{t("common.all_sources")}</option>
+          <option value="phone">{t("source.phone")}</option>
+          <option value="online">{t("source.online")}</option>
+          <option value="walkin">{t("source.walkin")}</option>
+        </select>
+        {(query || statusFilter !== "all" || sourceFilter !== "all") && (
+          <button data-testid="list-filter-clear"
+                  onClick={() => { setQuery(""); setStatusFilter("all"); setSourceFilter("all"); }}
+                  className="text-xs px-3 py-2 border border-zinc-200 rounded-md hover:bg-zinc-100">
+            {t("common.clear_filters")}
+          </button>
+        )}
+        <div className="text-xs text-zinc-500 ml-auto" data-testid="list-filter-count">
+          {filteredBookings.length} / {bookings.length}
+        </div>
+      </div>
+
       <div className="bg-white border border-zinc-200 rounded-lg overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-zinc-50 border-b border-zinc-200 text-zinc-500">
@@ -106,12 +160,12 @@ export default function BookingsList() {
             </tr>
           </thead>
           <tbody data-testid="bookings-tbody">
-            {bookings.length === 0 && (
+            {filteredBookings.length === 0 && (
               <tr><td colSpan={7} className="px-4 py-16 text-center text-zinc-400">
-                Nessuna prenotazione per questa data
+                {bookings.length === 0 ? "Nessuna prenotazione per questa data" : t("common.no_results")}
               </td></tr>
             )}
-            {bookings
+            {filteredBookings
               .slice()
               .sort((a, b) => a.time.localeCompare(b.time))
               .map((b) => {
