@@ -44,6 +44,10 @@ export default function PublicBooking() {
   const [touched, setTouched] = useState({ name: false, email: false, phone: false });
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [legalOpen, setLegalOpen] = useState(null); // "terms" | "privacy" | null
+  const nameRef = useRef(null);
+  const emailRef = useRef(null);
+  const phoneRef = useRef(null);
+  const termsRef = useRef(null);
   const [submitting, setSubmitting] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [loadingSlots, setLoadingSlots] = useState(false);
@@ -120,11 +124,24 @@ export default function PublicBooking() {
   }, [contact.name, contact.email, contact.phone, lang]);
 
   const showErr = (field) => (touched[field] || submitAttempted) && contactErrors[field];
+  const showTermsErr = submitAttempted && !contact.terms;
 
   const submit = async () => {
     setSubmitAttempted(true);
-    if (Object.keys(contactErrors).length > 0) return;
-    if (!contact.terms) { toast.error("Devi accettare i termini"); return; }
+    setTouched({ name: true, email: true, phone: true });
+    // Focus + scroll to first invalid field
+    const invalidRef =
+      contactErrors.name ? nameRef :
+      contactErrors.email ? emailRef :
+      contactErrors.phone ? phoneRef :
+      !contact.terms ? termsRef : null;
+    if (invalidRef?.current) {
+      try {
+        invalidRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+        invalidRef.current.focus({ preventScroll: true });
+      } catch (e) { /* noop */ }
+      return;
+    }
     setSubmitting(true);
     try {
       const { data } = await api.post(`/public/${subdomain}/book`, {
@@ -458,7 +475,7 @@ export default function PublicBooking() {
                   <div className="mt-8 max-w-md mx-auto space-y-4">
                     <div>
                       <label className="text-[10px] font-mono uppercase tracking-widest text-white/50 mb-1 block">{t("common.name")}</label>
-                      <input data-testid="contact-name" value={contact.name}
+                      <input data-testid="contact-name" ref={nameRef} value={contact.name}
                              onChange={(e) => setContact({ ...contact, name: e.target.value })}
                              onBlur={() => setTouched((s) => ({ ...s, name: true }))}
                              aria-invalid={!!showErr("name")}
@@ -469,7 +486,7 @@ export default function PublicBooking() {
                     </div>
                     <div>
                       <label className="text-[10px] font-mono uppercase tracking-widest text-white/50 mb-1 block">{t("common.email")}</label>
-                      <input data-testid="contact-email" type="email" value={contact.email}
+                      <input data-testid="contact-email" ref={emailRef} type="email" value={contact.email}
                              onChange={(e) => setContact({ ...contact, email: e.target.value })}
                              onBlur={() => setTouched((s) => ({ ...s, email: true }))}
                              aria-invalid={!!showErr("email")}
@@ -480,7 +497,7 @@ export default function PublicBooking() {
                     </div>
                     <div>
                       <label className="text-[10px] font-mono uppercase tracking-widest text-white/50 mb-1 block">{t("common.phone")}</label>
-                      <input data-testid="contact-phone" value={contact.phone}
+                      <input data-testid="contact-phone" ref={phoneRef} value={contact.phone}
                              onChange={(e) => setContact({ ...contact, phone: e.target.value })}
                              onBlur={() => setTouched((s) => ({ ...s, phone: true }))}
                              aria-invalid={!!showErr("phone")}
@@ -497,10 +514,11 @@ export default function PublicBooking() {
                                 placeholder={t("book.message_placeholder")}
                                 className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-white/30 focus:border-amber-600 transition-colors" />
                     </div>
-                    <label className="flex items-start gap-2 text-sm text-white/70">
-                      <input data-testid="contact-terms" type="checkbox" checked={contact.terms}
+                    <label className={`flex items-start gap-2 text-sm ${showTermsErr ? "text-red-400" : "text-white/70"}`}>
+                      <input data-testid="contact-terms" ref={termsRef} type="checkbox" checked={contact.terms}
                              onChange={(e) => setContact({ ...contact, terms: e.target.checked })}
-                             className="mt-1 accent-amber-600" />
+                             aria-invalid={showTermsErr}
+                             className={`mt-1 accent-amber-600 ${showTermsErr ? "ring-2 ring-red-500 rounded" : ""}`} />
                       <span>
                         {t("book.terms_accept_prefix")}{" "}
                         <button type="button" data-testid="terms-link"
@@ -516,6 +534,11 @@ export default function PublicBooking() {
                         </button>.
                       </span>
                     </label>
+                    {showTermsErr && (
+                      <div data-testid="err-contact-terms" className="text-xs text-red-400 -mt-2">
+                        {t("book.error_terms")}
+                      </div>
+                    )}
                     <div className="text-xs font-mono text-white/50 pt-2 border-t border-white/10 space-y-1">
                       <div>{t(`book.service_${service}`)}</div>
                       <div>{selectedDate} · {selectedTime}</div>
@@ -528,7 +551,7 @@ export default function PublicBooking() {
                       <ChevronLeft size={16} /> {t("book.back")}
                     </button>
                     <button data-testid="step4-submit" onClick={submit}
-                            disabled={submitting || Object.keys(contactErrors).length > 0 || !contact.terms}
+                            disabled={submitting}
                             className="pill-btn">
                       {submitting ? "…" : t("book.confirm")} <Check size={16} />
                     </button>
