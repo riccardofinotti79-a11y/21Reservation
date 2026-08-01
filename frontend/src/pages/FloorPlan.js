@@ -91,17 +91,17 @@ export default function FloorPlan() {
   };
 
   return (
-    <div className="p-8 max-w-[1400px] mx-auto">
+    <div className="p-4 sm:p-8 max-w-[1400px] mx-auto">
       <div className="flex items-end justify-between mb-6 flex-wrap gap-3">
         <div>
           <div className="label-eyebrow">Config</div>
-          <h1 className="font-serif-display text-5xl">Planimetria</h1>
-          <p className="text-sm text-zinc-500 mt-1">Trascina i tavoli per posizionarli. Snap alla griglia da {CELL}px.</p>
+          <h1 className="font-serif-display text-4xl sm:text-5xl text-zinc-900 dark:text-zinc-100">Planimetria</h1>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Trascina i tavoli per posizionarli. Snap alla griglia da {CELL}px.</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={load} className="p-2 border border-zinc-200 rounded-md hover:bg-zinc-50"><RefreshCw size={16} /></button>
+          <button onClick={load} className="p-2 border border-zinc-200 dark:border-zinc-700 rounded-md hover:bg-zinc-50 dark:hover:bg-zinc-800"><RefreshCw size={16} /></button>
           <button data-testid="plan-save" onClick={saveAll}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-zinc-900 text-white hover:bg-zinc-700">
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:bg-zinc-700 dark:hover:bg-white">
             <Save size={16} /> {t("common.save")} ({Object.keys(dirty).length})
           </button>
         </div>
@@ -110,47 +110,51 @@ export default function FloorPlan() {
       <div className="flex gap-2 mb-4 flex-wrap">
         {areas.map((a) => (
           <button key={a.id} data-testid={`plan-area-${a.name}`} onClick={() => setActiveArea(a.id)}
-                  className={`px-4 py-2 rounded-full border text-sm transition-colors ${activeArea === a.id ? "bg-zinc-900 text-white border-zinc-900" : "border-zinc-200 hover:bg-zinc-50"}`}>
+                  className={`px-4 py-2 rounded-full border text-sm transition-colors ${activeArea === a.id ? "bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 border-zinc-900 dark:border-zinc-100" : "border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800"}`}>
             {a.name}
           </button>
         ))}
       </div>
 
-      <div
-        ref={containerRef}
-        data-testid="plan-canvas"
-        className="relative bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden r21-plan-canvas"
-        style={{ width: GRID_W, height: GRID_H, maxWidth: "100%",
-          backgroundSize: `${CELL}px ${CELL}px` }}
-      >
-        {areaTables.length === 0 && (
-          <div className="absolute inset-0 flex items-center justify-center text-zinc-400">
-            Nessun tavolo in questa area
-          </div>
-        )}
-        {areaTables.map((tb) => {
-          const s = shapeStyle(tb);
-          const isDrag = dragging?.id === tb.id;
-          return (
-            <div
-              key={tb.id}
-              data-testid={`plan-table-${tb.name}`}
-              onMouseDown={(e) => onMouseDown(e, tb)}
-              className={`absolute flex flex-col items-center justify-center text-white font-semibold cursor-move select-none shadow-md ${isDrag ? "ring-4 ring-amber-400/50" : ""}`}
-              style={{
-                left: tb.position?.x || 0,
-                top: tb.position?.y || 0,
-                backgroundColor: tableColor(tb),
-                transition: isDrag ? "none" : "box-shadow 0.15s ease",
-                ...s,
-              }}
-              title={`${tb.name} · ${tb.seats_min}-${tb.seats_max}`}
-            >
-              <div className="text-sm leading-none">{tb.name}</div>
-              <div className="text-[10px] font-mono opacity-90 mt-1">{tb.seats_min}-{tb.seats_max}p</div>
+      <div className="border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-auto bg-zinc-50 dark:bg-zinc-800/60"
+           style={{ maxHeight: "min(70vh, 640px)", WebkitOverflowScrolling: "touch" }}
+           data-testid="plan-scroll">
+        <div
+          ref={containerRef}
+          data-testid="plan-canvas"
+          className="relative bg-white dark:bg-zinc-900 r21-plan-canvas"
+          style={{ width: GRID_W, height: GRID_H,
+            backgroundSize: `${CELL}px ${CELL}px` }}
+        >
+          {areaTables.length === 0 && (
+            <div className="absolute inset-0 flex items-center justify-center text-zinc-400 dark:text-zinc-500">
+              Nessun tavolo in questa area
             </div>
-          );
-        })}
+          )}
+          {areaTables.map((tb) => {
+            const s = shapeStyle(tb);
+            const isDrag = dragging?.id === tb.id;
+            return (
+              <div
+                key={tb.id}
+                data-testid={`plan-table-${tb.name}`}
+                onMouseDown={(e) => onMouseDown(e, tb)}
+                className={`absolute flex flex-col items-center justify-center text-white font-semibold cursor-move select-none shadow-md ${isDrag ? "ring-4 ring-amber-400/50" : ""}`}
+                style={{
+                  left: tb.position?.x || 0,
+                  top: tb.position?.y || 0,
+                  backgroundColor: tableColor(tb),
+                  transition: isDrag ? "none" : "box-shadow 0.15s ease",
+                  ...s,
+                }}
+                title={`${tb.name} · ${tb.seats_min}-${tb.seats_max}`}
+              >
+                <div className="text-sm leading-none">{tb.name}</div>
+                <div className="text-[10px] font-mono opacity-90 mt-1">{tb.seats_min}-{tb.seats_max}p</div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       <div className="mt-4 flex items-center gap-4 text-xs text-zinc-600 flex-wrap">

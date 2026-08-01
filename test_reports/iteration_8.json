@@ -1,0 +1,31 @@
+{
+  "summary": "Verificato il fix FloorPlan mobile: T4 in Sala Principale è raggiungibile scrollando `plan-scroll` a 375px e 460px; nessun scroll orizzontale a livello documento; a 1440px tutti i tavoli visibili senza scroll; cambio area funziona; drag&drop desktop sposta T4 con snap a griglia 20px e counter di plan-save; PATCH /api/tables/{id} risponde 200 e reset counter a (0).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Il drag corrente è gestito solo con mouse events; touch drag non è implementato — accettabile perché è desktop-only per design.",
+    "Console warning ricorrente su Recharts (width/height -1) su altre pagine — non correlato al fix ma da monitorare."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a", "frontend": "100%"},
+  "test_credentials": "owner@demo.com / demo1234",
+  "seed_data_creation": "Nessuna",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Fix verificato su viewport 375, 460 e 1440. A 375px: canvas 900x600 dentro plan-scroll clientWidth=341, T4 offsetLeft=460 → dopo scroll.scrollTo({left: 440}), T4 rect (37..109) è dentro container rect (16..359). docSW==docCW==375 (nessuno scroll orizzontale documento). A 460px stesso comportamento (T4 già visibile dopo scroll). A 1440px tutti T1..T7 visibili, nessuno scroll richiesto. Cambio area chip: Sala Principale (T1..T7) → Dehors (D1..D3) — cambia. Drag&Drop desktop: T4 spostato da (400,40) a (460,80) — snap a 20px OK, counter passa a (1); dopo click plan-save, PATCH /api/tables/{id} risponde 200 e counter torna a (0). Il fix è completo e stabile.",
+  "test_details": {
+    "375_t4_reachable": true,
+    "460_t4_reachable": true,
+    "1440_all_visible_no_scroll": true,
+    "doc_no_horizontal_scroll_375": true,
+    "area_chip_switch_ok": true,
+    "drag_moved_and_snapped": true,
+    "save_patch_200_counter_reset": true
+  }
+}
