@@ -1,0 +1,35 @@
+{
+  "summary": "Frontend-only test della persistenza tema in 21Reservation dopo rewrite di /app/frontend/src/theme.js + inline pre-paint script in public/index.html. Eseguiti 7 scenari via Playwright a viewport 1200x800 con login owner@demo.com/demo1234. TUTTI PASSATI.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Dashboard (Home)", "issues": ["Warning ricorrente in console da Recharts: 'The width(-1) and height(-1) of chart should be greater than 0'. Non blocca il tema ma indica un ResponsiveContainer con parent a dimensione 0 al primo render. Non è oggetto di questo test ma segnalato per pulizia console."]}
+    ]
+  },
+  "test_results": {
+    "TEST 1 - Empty LS -> LIGHT default, toggle to DARK, nav Lista/Tavoli/Planimetria/Calendario/Home": "PASS. Default light, toggle imposta html.dark=true, LS.theme=dark, LS.21r_dark=1. Dark preservato su TUTTE le rotte.",
+    "TEST 2 - Preset DARK -> toggle LIGHT -> stessa navigazione": "PASS. LS.theme=light, LS.21r_dark=0, html senza classe dark su tutte le rotte.",
+    "TEST 3 - Reload persistence (light e dark)": "PASS. Ricarica conserva il tema in entrambe le direzioni.",
+    "TEST 4 - PRE-PAINT (no FOUC)": "PASS. Con LS.theme=dark, immediatamente dopo page.goto (domcontentloaded, prima di networkidle e prima del mount React) `document.documentElement.classList.contains('dark')===true` grazie all'inline script in index.html.",
+    "TEST 5 - Migrazione legacy 21r_dark=1 senza chiave theme": "PASS. Pre-paint applica dark; dopo mount theme.js valorizza LS.theme='dark' e mantiene LS.21r_dark='1'.",
+    "TEST 6 - Multi-tab StorageEvent": "PASS. Dispatch manuale di StorageEvent(key='theme', newValue='light') rimuove la classe dark dinamicamente.",
+    "TEST 7 - Regressione bottone [data-testid=theme-toggle]": "PASS. Il testo alterna correttamente tra 'Tema scuro' (stato light) e 'Tema chiaro' (stato dark). Nessun errore JS in console (solo warning Recharts non correlati)."
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "theme.js: implementazione pulita e corretta — STORAGE_KEY unica sorgente di verità, useLayoutEffect blocca il paint fino all'applicazione classe, listener storage per multi-tab, migrazione legacy gestita sia in JS che nell'inline script di index.html.",
+    "index.html: l'inline script è posizionato correttamente PRIMA del bundle React e del posthog init, quindi nessun FOUC possibile. Include anche il fallback di migrazione dalla chiave legacy '21r_dark'.",
+    "Minor (fuori scope tema): Recharts logga warning width/height=-1 al primo mount del Dashboard — considerare di dare al container un min-height esplicito."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (skipped by request)", "frontend": "100% (7/7 theme scenarios)"},
+  "test_credentials": "owner@demo.com / demo1234 (funzionante)",
+  "seed_data_creation": "Nessuna",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Il bug di persistenza tema è pienamente risolto. La coppia (theme.js con useLayoutEffect) + (inline script pre-paint in public/index.html) elimina sia il FOUC sia il reset del tema durante la navigazione client-side. Sia LS.theme che LS.21r_dark restano sincronizzate. Il bottone [data-testid=theme-toggle] è nella sidebar del Dashboard ed è visibile a viewport lg (1200x800). Nessun ulteriore intervento richiesto sul tema.",
+  "rca of the issue": "RCA originale: il vecchio theme.js probabilmente leggeva solo la chiave legacy o applicava la classe in useEffect (post-paint), causando un flash e il reset visivo durante il route change se qualche componente di layout resettava la classe. Fix: (1) chiave unica 'theme' + migrazione legacy, (2) useLayoutEffect per applicare la classe prima del paint, (3) inline script in index.html che applica la classe PRIMA che React monti, eliminando ogni finestra di FOUC. Verificato che navigando tra /bookings/list, /tables, /floorplan, /bookings/calendar e / la classe html.dark rimane coerente con LS."
+}
