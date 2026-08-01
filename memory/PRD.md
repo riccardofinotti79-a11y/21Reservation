@@ -235,3 +235,10 @@ Stack: FastAPI + MongoDB + React/Tailwind + JWT auth + 5s polling + Resend email
 - Body scroll lock: `useEffect` setta `document.body.style.overflow="hidden"` all'apertura e ripristina alla chiusura.
 - Input tokenizzato via `inputCls` con `text-base sm:text-sm` (16px su mobile) + `w-full`.
 - Verifica 375px dark: modale bg `rgb(24,24,27)`, titolo `rgb(244,244,245)`, panel scrollWidth==clientWidth==375, body lock attivo, edit + save funzionanti.
+
+## Iteration 16 (2026-02-15) — Waitlist: dark + mobile cards
+- `Waitlist.js` allineata al pattern delle altre liste: `useMediaQuery` switcha tra tabella (sm+) e card impilate (mobile), un solo albero DOM (testid unici).
+- Dark mode: `bg-white → dark:bg-zinc-900`, bordi `dark:border-zinc-800`, hover riga `dark:hover:bg-zinc-800/40`, testi `dark:text-zinc-100/300/400`, header table `dark:bg-zinc-800/60`, service chip `dark:bg-zinc-800 dark:text-zinc-200`, empty state con Users icon leggibile.
+- `STATUS_CLS` per waiting/notified/converted/expired/cancelled ora ha varianti `dark:*-950/60 / -200 / -800/60` (stesso schema di StatusBadge).
+- Mobile: `p-4 sm:p-8` sull'outer, filtro `w-full sm:w-auto` con `text-base sm:text-sm`, azioni ≥40×40px con bordo colorato per contrasto, `overflow-x-auto` intorno alla tabella desktop.
+- Verifica 375px dark: `docSW==docCW==375` (nessun page overflow), background container `rgb(24,24,27)`, filter select full-width, card rows visibili con etichetta:valore. Anche a 320px nessun overflow.
