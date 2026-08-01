@@ -24,12 +24,12 @@ export default function Reports() {
       <div className="flex items-end justify-between mb-8 flex-wrap gap-3">
         <div>
           <div className="label-eyebrow">Analytics</div>
-          <h1 className="font-serif-display text-5xl text-zinc-900 dark:text-zinc-50">{t("reports.title")}</h1>
+          <h1 className="font-serif-display text-5xl text-zinc-900 dark:text-zinc-100 dark:text-zinc-50">{t("reports.title")}</h1>
         </div>
         <div className="flex items-center gap-2">
-          <input data-testid="report-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="border border-zinc-200 dark:border-zinc-700 rounded-md px-3 py-2 bg-white dark:bg-zinc-900" />
-          <span className="text-zinc-400">→</span>
-          <input data-testid="report-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} className="border border-zinc-200 dark:border-zinc-700 rounded-md px-3 py-2 bg-white dark:bg-zinc-900" />
+          <input data-testid="report-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="border border-zinc-200 dark:border-zinc-800 dark:border-zinc-700 rounded-md px-3 py-2 bg-white dark:bg-zinc-900 dark:bg-zinc-900" />
+          <span className="text-zinc-400 dark:text-zinc-500">→</span>
+          <input data-testid="report-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} className="border border-zinc-200 dark:border-zinc-800 dark:border-zinc-700 rounded-md px-3 py-2 bg-white dark:bg-zinc-900 dark:bg-zinc-900" />
         </div>
       </div>
 
@@ -41,7 +41,7 @@ export default function Reports() {
         <Kpi label={t("reports.occupancy")} value={`${data?.estimated_occupancy_pct ?? 0}%`} testId="kpi-occupancy" dark />
       </div>
 
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-5 mb-6" data-testid="report-chart">
+      <div className="bg-white dark:bg-zinc-900 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 dark:border-zinc-800 rounded-lg p-5 mb-6" data-testid="report-chart">
         <div className="label-eyebrow mb-4">Prenotazioni & Coperti / giorno</div>
         <div style={{ width: "100%", height: 340 }}>
           <ResponsiveContainer>
@@ -62,8 +62,8 @@ export default function Reports() {
 
 function Kpi({ label, value, testId, dark }) {
   const cls = dark
-    ? "bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 border-zinc-900 dark:border-zinc-100"
-    : "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800";
+    ? "bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 dark:text-zinc-100 border-zinc-900 dark:border-zinc-100 dark:border-zinc-800"
+    : "bg-white dark:bg-zinc-900 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 dark:border-zinc-800";
   return (
     <div className={`rounded-lg p-5 border ${cls}`} data-testid={testId}>
       <div className={`label-eyebrow ${dark ? "" : ""}`} style={dark ? { color: "#a1a1aa" } : {}}>{label}</div>

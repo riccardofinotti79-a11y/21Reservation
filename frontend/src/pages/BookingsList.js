@@ -138,9 +138,9 @@ export default function BookingsList() {
         </div>
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap w-full sm:w-auto">
           <input data-testid="list-date-picker" type="date" value={date} onChange={(e) => setDate(e.target.value)}
-                 className="flex-1 sm:flex-none border border-zinc-200 rounded-md px-3 py-2 bg-white text-base sm:text-sm" />
+                 className="flex-1 sm:flex-none border border-zinc-200 dark:border-zinc-800 rounded-md px-3 py-2 bg-white dark:bg-zinc-900 text-base sm:text-sm" />
           <button data-testid="list-today-btn" onClick={() => setDate(todayStr())}
-                  className="px-3 py-2 border border-zinc-200 rounded-md text-sm hover:bg-zinc-100">
+                  className="px-3 py-2 border border-zinc-200 dark:border-zinc-800 rounded-md text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800">
             {t("common.today")}
           </button>
           <button data-testid="list-new-booking" onClick={openNew}
@@ -151,21 +151,21 @@ export default function BookingsList() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6">
-        <div className="bg-white border border-zinc-200 rounded-lg p-4 sm:p-5">
+        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 sm:p-5">
           <div className="label-eyebrow">{t("reports.total_bookings")}</div>
           <div className="text-3xl sm:text-4xl font-serif-display mt-2" data-testid="stat-bookings">{bookings.length}</div>
         </div>
-        <div className="bg-white border border-zinc-200 rounded-lg p-4 sm:p-5">
+        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 sm:p-5">
           <div className="label-eyebrow">{t("reports.total_guests")}</div>
           <div className="text-3xl sm:text-4xl font-serif-display mt-2" data-testid="stat-guests">{totalGuests}</div>
         </div>
-        <div className="bg-white border border-zinc-200 rounded-lg p-4 sm:p-5">
+        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 sm:p-5">
           <div className="label-eyebrow">{t("status.pending")}</div>
           <div className="text-3xl sm:text-4xl font-serif-display mt-2" data-testid="stat-pending">
             {bookings.filter((b) => b.status === "pending").length}
           </div>
         </div>
-        <div className="bg-white border border-zinc-200 rounded-lg p-4 sm:p-5">
+        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 sm:p-5">
           <div className="label-eyebrow">{t("status.seated")}</div>
           <div className="text-3xl sm:text-4xl font-serif-display mt-2" data-testid="stat-seated">
             {bookings.filter((b) => b.status === "seated").length}
@@ -173,14 +173,14 @@ export default function BookingsList() {
         </div>
       </div>
 
-      <div className="bg-white border border-zinc-200 rounded-lg p-3 sm:p-4 mb-4 flex flex-wrap items-center gap-2 sm:gap-3">
+      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-3 sm:p-4 mb-4 flex flex-wrap items-center gap-2 sm:gap-3">
         <input data-testid="list-search" type="search" value={query}
                onChange={(e) => setQuery(e.target.value)}
                placeholder={t("common.search_placeholder")}
-               className="w-full sm:flex-1 sm:min-w-[200px] border border-zinc-200 rounded-md px-3 py-2 text-base sm:text-sm" />
+               className="w-full sm:flex-1 sm:min-w-[200px] border border-zinc-200 dark:border-zinc-800 rounded-md px-3 py-2 text-base sm:text-sm" />
         <select data-testid="list-filter-status" value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="flex-1 sm:flex-none border border-zinc-200 rounded-md px-3 py-2 text-base sm:text-sm bg-white">
+                className="flex-1 sm:flex-none border border-zinc-200 dark:border-zinc-800 rounded-md px-3 py-2 text-base sm:text-sm bg-white dark:bg-zinc-900">
           <option value="all">{t("common.all_statuses")}</option>
           <option value="pending">{t("status.pending")}</option>
           <option value="accepted">{t("status.accepted")}</option>
@@ -191,7 +191,7 @@ export default function BookingsList() {
         </select>
         <select data-testid="list-filter-source" value={sourceFilter}
                 onChange={(e) => setSourceFilter(e.target.value)}
-                className="flex-1 sm:flex-none border border-zinc-200 rounded-md px-3 py-2 text-base sm:text-sm bg-white">
+                className="flex-1 sm:flex-none border border-zinc-200 dark:border-zinc-800 rounded-md px-3 py-2 text-base sm:text-sm bg-white dark:bg-zinc-900">
           <option value="all">{t("common.all_sources")}</option>
           <option value="phone">{t("source.phone")}</option>
           <option value="online">{t("source.online")}</option>
@@ -200,19 +200,19 @@ export default function BookingsList() {
         {(query || statusFilter !== "all" || sourceFilter !== "all") && (
           <button data-testid="list-filter-clear"
                   onClick={() => { setQuery(""); setStatusFilter("all"); setSourceFilter("all"); }}
-                  className="text-xs px-3 py-2 border border-zinc-200 rounded-md hover:bg-zinc-100">
+                  className="text-xs px-3 py-2 border border-zinc-200 dark:border-zinc-800 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800">
             {t("common.clear_filters")}
           </button>
         )}
-        <div className="text-xs text-zinc-500 ml-auto" data-testid="list-filter-count">
+        <div className="text-xs text-zinc-500 dark:text-zinc-400 dark:text-zinc-500 ml-auto" data-testid="list-filter-count">
           {filteredBookings.length} / {bookings.length}
         </div>
       </div>
 
       {isMobile ? (
-        <div className="bg-white border border-zinc-200 rounded-lg overflow-hidden divide-y divide-zinc-100" data-testid="bookings-tbody">
+        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden divide-y divide-zinc-100" data-testid="bookings-tbody">
           {sortedFiltered.length === 0 && (
-            <div className="px-4 py-12 text-center text-zinc-400 text-sm">
+            <div className="px-4 py-12 text-center text-zinc-400 dark:text-zinc-500 text-sm">
               {bookings.length === 0 ? "Nessuna prenotazione per questa data" : t("common.no_results")}
             </div>
           )}
@@ -226,17 +226,17 @@ export default function BookingsList() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="font-mono text-2xl leading-none">{b.time}</div>
-                    <div className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 mt-2">{t(`source.${b.source}`)}</div>
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 dark:text-zinc-400 dark:text-zinc-500 mt-2">{t(`source.${b.source}`)}</div>
                   </div>
                   <StatusBadge status={b.status} />
                 </div>
                 <div className="mt-3">
-                  <div className="font-medium text-zinc-900 break-words">{c?.name || "—"}</div>
-                  <div className="text-sm text-zinc-500 break-all">{c?.phone || c?.email || ""}</div>
+                  <div className="font-medium text-zinc-900 dark:text-zinc-100 break-words">{c?.name || "—"}</div>
+                  <div className="text-sm text-zinc-500 dark:text-zinc-400 dark:text-zinc-500 break-all">{c?.phone || c?.email || ""}</div>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm">
-                  <div><span className="text-zinc-400 text-[10px] uppercase tracking-widest mr-1">{t("common.persons")}</span><span className="font-mono">{b.persons}</span></div>
-                  <div><span className="text-zinc-400 text-[10px] uppercase tracking-widest mr-1">{t("common.table")}</span>{tbls || "—"}</div>
+                  <div><span className="text-zinc-400 dark:text-zinc-500 text-[10px] uppercase tracking-widest mr-1">{t("common.persons")}</span><span className="font-mono">{b.persons}</span></div>
+                  <div><span className="text-zinc-400 dark:text-zinc-500 text-[10px] uppercase tracking-widest mr-1">{t("common.table")}</span>{tbls || "—"}</div>
                 </div>
                 <div className="mt-4">{renderActions(b)}</div>
               </div>
@@ -244,10 +244,10 @@ export default function BookingsList() {
           })}
         </div>
       ) : (
-        <div className="bg-white border border-zinc-200 rounded-lg overflow-hidden">
+        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-zinc-50 border-b border-zinc-200 text-zinc-500">
+              <thead className="bg-zinc-50 dark:bg-zinc-800/60 border-b border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400 dark:text-zinc-500">
                 <tr>
                   <th className="text-left px-4 py-3 label-eyebrow">{t("common.time")}</th>
                   <th className="text-left px-4 py-3 label-eyebrow">{t("common.name")}</th>
@@ -260,7 +260,7 @@ export default function BookingsList() {
               </thead>
               <tbody data-testid="bookings-tbody">
                 {sortedFiltered.length === 0 && (
-                  <tr><td colSpan={7} className="px-4 py-16 text-center text-zinc-400">
+                  <tr><td colSpan={7} className="px-4 py-16 text-center text-zinc-400 dark:text-zinc-500">
                     {bookings.length === 0 ? "Nessuna prenotazione per questa data" : t("common.no_results")}
                   </td></tr>
                 )}
@@ -270,16 +270,16 @@ export default function BookingsList() {
                   return (
                     <tr key={b.id}
                         onClick={() => openEdit(b)}
-                        className="border-b border-zinc-100 hover:bg-zinc-50/50 transition-colors cursor-pointer"
+                        className="border-b border-zinc-100 dark:border-zinc-800 hover:bg-zinc-50/50 dark:bg-zinc-800/40 dark:hover:bg-zinc-800/40 transition-colors cursor-pointer"
                         data-testid={`booking-row-${b.id}`}>
                       <td className="px-4 py-3 font-mono">{b.time}</td>
                       <td className="px-4 py-3">
-                        <div className="font-medium text-zinc-900">{c?.name || "—"}</div>
-                        <div className="text-xs text-zinc-500">{c?.phone || c?.email || ""}</div>
+                        <div className="font-medium text-zinc-900 dark:text-zinc-100">{c?.name || "—"}</div>
+                        <div className="text-xs text-zinc-500 dark:text-zinc-400 dark:text-zinc-500">{c?.phone || c?.email || ""}</div>
                       </td>
                       <td className="px-4 py-3 font-mono">{b.persons}</td>
                       <td className="px-4 py-3">{tbls || "—"}</td>
-                      <td className="px-4 py-3 text-xs uppercase text-zinc-500 tracking-wider">{t(`source.${b.source}`)}</td>
+                      <td className="px-4 py-3 text-xs uppercase text-zinc-500 dark:text-zinc-400 dark:text-zinc-500 tracking-wider">{t(`source.${b.source}`)}</td>
                       <td className="px-4 py-3"><StatusBadge status={b.status} /></td>
                       <td className="px-4 py-3">{renderActions(b)}</td>
                     </tr>

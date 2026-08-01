@@ -7,7 +7,7 @@ import { useI18n } from "../i18n";
 
 function reliabilityScore(c) {
   const total = c.total_bookings || 0;
-  if (total === 0) return { score: null, label: "—", cls: "text-zinc-400" };
+  if (total === 0) return { score: null, label: "—", cls: "text-zinc-400 dark:text-zinc-500" };
   const bad = (c.no_show_count || 0) + Math.floor((c.cancelled_count || 0) / 2);
   const ratio = 1 - bad / Math.max(total, 1);
   const score = Math.max(0, Math.round(ratio * 100));
@@ -40,37 +40,37 @@ export default function Customers() {
           <h1 className="font-serif-display text-4xl sm:text-5xl">{t("customers.title")}</h1>
         </div>
         <div className="relative w-full sm:w-72">
-          <Search size={16} className="absolute left-3 top-3 text-zinc-400" />
+          <Search size={16} className="absolute left-3 top-3 text-zinc-400 dark:text-zinc-500" />
           <input data-testid="customers-search" value={q} onChange={(e) => setQ(e.target.value)}
                  placeholder={t("common.search")}
-                 className="pl-9 pr-3 py-2 border border-zinc-200 rounded-md bg-white w-full text-base sm:text-sm" />
+                 className="pl-9 pr-3 py-2 border border-zinc-200 dark:border-zinc-800 rounded-md bg-white dark:bg-zinc-900 w-full text-base sm:text-sm" />
         </div>
       </div>
 
       {isMobile ? (
-        <div className="bg-white border border-zinc-200 rounded-lg overflow-hidden divide-y divide-zinc-100" data-testid="customers-tbody">
+        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden divide-y divide-zinc-100" data-testid="customers-tbody">
           {customers.length === 0 && (
-            <div className="px-4 py-12 text-center text-zinc-400 text-sm">—</div>
+            <div className="px-4 py-12 text-center text-zinc-400 dark:text-zinc-500 text-sm">—</div>
           )}
           {customers.map((c) => {
             const r = reliabilityScore(c);
             return (
               <Link key={c.id} to={`/customers/${c.id}`}
                     data-testid={`customer-row-${c.id}`}
-                    className="block p-4 active:bg-zinc-50">
+                    className="block p-4 active:bg-zinc-50 dark:bg-zinc-800/60">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-2 min-w-0">
                     {c.bad_guest_flag ? <ShieldAlert size={14} className="text-red-600 shrink-0" /> : <Shield size={14} className="text-zinc-300 shrink-0" />}
-                    <div className="font-medium text-zinc-900 break-words">{c.name}</div>
+                    <div className="font-medium text-zinc-900 dark:text-zinc-100 break-words">{c.name}</div>
                   </div>
                   <div className={`font-mono font-semibold text-lg ${r.cls} shrink-0`}>{r.label}</div>
                 </div>
                 <div className="mt-2 space-y-1 text-sm">
-                  <div><span className="text-zinc-400 text-[10px] uppercase tracking-widest mr-1">{t("common.phone")}</span><span className="font-mono break-all">{c.phone || "—"}</span></div>
-                  <div><span className="text-zinc-400 text-[10px] uppercase tracking-widest mr-1">{t("common.email")}</span><span className="break-all">{c.email || "—"}</span></div>
+                  <div><span className="text-zinc-400 dark:text-zinc-500 text-[10px] uppercase tracking-widest mr-1">{t("common.phone")}</span><span className="font-mono break-all">{c.phone || "—"}</span></div>
+                  <div><span className="text-zinc-400 dark:text-zinc-500 text-[10px] uppercase tracking-widest mr-1">{t("common.email")}</span><span className="break-all">{c.email || "—"}</span></div>
                 </div>
-                <div className="mt-2 text-xs text-zinc-600">
-                  <span className="text-zinc-400 text-[10px] uppercase tracking-widest mr-1">Storico</span>
+                <div className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">
+                  <span className="text-zinc-400 dark:text-zinc-500 text-[10px] uppercase tracking-widest mr-1">Storico</span>
                   <span className="font-mono">{c.total_bookings || 0}</span> · NS <span className="font-mono">{c.no_show_count || 0}</span> · X <span className="font-mono">{c.cancelled_count || 0}</span>
                 </div>
                 {(c.tags || []).length > 0 && (
@@ -83,10 +83,10 @@ export default function Customers() {
           })}
         </div>
       ) : (
-        <div className="bg-white border border-zinc-200 rounded-lg overflow-hidden">
+        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-zinc-50 border-b border-zinc-200">
+              <thead className="bg-zinc-50 dark:bg-zinc-800/60 border-b border-zinc-200 dark:border-zinc-800">
                 <tr>
                   <th className="text-left px-4 py-3 label-eyebrow">{t("common.name")}</th>
                   <th className="text-left px-4 py-3 label-eyebrow">{t("common.phone")}</th>
@@ -97,11 +97,11 @@ export default function Customers() {
                 </tr>
               </thead>
               <tbody data-testid="customers-tbody">
-                {customers.length === 0 && <tr><td colSpan={6} className="px-4 py-12 text-center text-zinc-400">—</td></tr>}
+                {customers.length === 0 && <tr><td colSpan={6} className="px-4 py-12 text-center text-zinc-400 dark:text-zinc-500">—</td></tr>}
                 {customers.map((c) => {
                   const r = reliabilityScore(c);
                   return (
-                    <tr key={c.id} className="border-b border-zinc-100 hover:bg-zinc-50/50" data-testid={`customer-row-${c.id}`}>
+                    <tr key={c.id} className="border-b border-zinc-100 dark:border-zinc-800 hover:bg-zinc-50/50 dark:bg-zinc-800/40 dark:hover:bg-zinc-800/40" data-testid={`customer-row-${c.id}`}>
                       <td className="px-4 py-3">
                         <Link to={`/customers/${c.id}`} className="font-medium hover:underline flex items-center gap-2">
                           {c.bad_guest_flag ? <ShieldAlert size={14} className="text-red-600" /> : <Shield size={14} className="text-zinc-300" />}

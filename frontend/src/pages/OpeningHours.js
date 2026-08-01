@@ -59,7 +59,7 @@ export default function OpeningHours() {
       </div>
 
       {showForm && (
-        <div className="bg-white border border-zinc-200 rounded-lg p-5 mb-6" data-testid="hours-form">
+        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-5 mb-6" data-testid="hours-form">
           <div className="flex gap-4 mb-4">
             <label className="flex items-center gap-2">
               <input type="radio" checked={draft.mode === "weekly"} onChange={() => setDraft({ ...draft, mode: "weekly" })}/>
@@ -75,7 +75,7 @@ export default function OpeningHours() {
               <div>
                 <label className="label-eyebrow block mb-1">{t("hours.weekday")}</label>
                 <select data-testid="hours-weekday" value={draft.weekday} onChange={(e) => setDraft({ ...draft, weekday: Number(e.target.value) })}
-                        className="w-full border border-zinc-200 rounded-md px-2 py-1.5">
+                        className="w-full border border-zinc-200 dark:border-zinc-800 rounded-md px-2 py-1.5">
                   {WEEKDAY_NAMES[lang].map((n, i) => <option key={i} value={i}>{n}</option>)}
                 </select>
               </div>
@@ -84,38 +84,38 @@ export default function OpeningHours() {
                 <label className="label-eyebrow block mb-1">{t("hours.specific_date")}</label>
                 <input data-testid="hours-date" type="date" value={draft.specific_date}
                        onChange={(e) => setDraft({ ...draft, specific_date: e.target.value })}
-                       className="w-full border border-zinc-200 rounded-md px-2 py-1.5" />
+                       className="w-full border border-zinc-200 dark:border-zinc-800 rounded-md px-2 py-1.5" />
               </div>
             )}
             <div>
               <label className="label-eyebrow block mb-1">{t("hours.open")}</label>
               <input data-testid="hours-open" type="time" value={draft.open_time}
                      onChange={(e) => setDraft({ ...draft, open_time: e.target.value })}
-                     className="w-full border border-zinc-200 rounded-md px-2 py-1.5" />
+                     className="w-full border border-zinc-200 dark:border-zinc-800 rounded-md px-2 py-1.5" />
             </div>
             <div>
               <label className="label-eyebrow block mb-1">{t("hours.close")}</label>
               <input data-testid="hours-close" type="time" value={draft.close_time}
                      onChange={(e) => setDraft({ ...draft, close_time: e.target.value })}
-                     className="w-full border border-zinc-200 rounded-md px-2 py-1.5" />
+                     className="w-full border border-zinc-200 dark:border-zinc-800 rounded-md px-2 py-1.5" />
             </div>
             <div>
               <label className="label-eyebrow block mb-1">Titolo</label>
               <input placeholder="Cena / Pranzo…" value={draft.title || ""}
                      onChange={(e) => setDraft({ ...draft, title: e.target.value })}
-                     className="w-full border border-zinc-200 rounded-md px-2 py-1.5" />
+                     className="w-full border border-zinc-200 dark:border-zinc-800 rounded-md px-2 py-1.5" />
             </div>
             <div>
               <label className="label-eyebrow block mb-1">{t("hours.interval")}</label>
               <input type="number" min={5} step={5} value={draft.slot_interval_minutes}
                      onChange={(e) => setDraft({ ...draft, slot_interval_minutes: Number(e.target.value) })}
-                     className="w-full border border-zinc-200 rounded-md px-2 py-1.5" />
+                     className="w-full border border-zinc-200 dark:border-zinc-800 rounded-md px-2 py-1.5" />
             </div>
             <div>
               <label className="label-eyebrow block mb-1">{t("hours.default_duration")}</label>
               <input type="number" min={30} step={15} value={draft.default_duration_minutes}
                      onChange={(e) => setDraft({ ...draft, default_duration_minutes: Number(e.target.value) })}
-                     className="w-full border border-zinc-200 rounded-md px-2 py-1.5" />
+                     className="w-full border border-zinc-200 dark:border-zinc-800 rounded-md px-2 py-1.5" />
             </div>
             {draft.mode === "exception" && (
               <div className="flex items-center gap-2 pt-6">
@@ -126,34 +126,34 @@ export default function OpeningHours() {
             )}
           </div>
           <div className="mt-4 flex items-center justify-end gap-2">
-            <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded-md border border-zinc-200">{t("common.cancel")}</button>
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded-md border border-zinc-200 dark:border-zinc-800">{t("common.cancel")}</button>
             <button data-testid="btn-save-hour" onClick={save} className="px-5 py-2 rounded-md bg-zinc-900 text-white">{t("common.save")}</button>
           </div>
         </div>
       )}
 
       <div className="grid md:grid-cols-2 gap-6">
-        <div className="bg-white border border-zinc-200 rounded-lg overflow-hidden">
-          <div className="p-4 border-b border-zinc-100 label-eyebrow">{t("hours.title")}</div>
-          {weekly.length === 0 && <div className="p-8 text-center text-zinc-400">—</div>}
+        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden">
+          <div className="p-4 border-b border-zinc-100 dark:border-zinc-800 label-eyebrow">{t("hours.title")}</div>
+          {weekly.length === 0 && <div className="p-8 text-center text-zinc-400 dark:text-zinc-500">—</div>}
           {weekly.sort((a, b) => (a.weekday - b.weekday) || a.open_time.localeCompare(b.open_time)).map((h) => (
-            <div key={h.id} className="flex items-center justify-between p-4 border-b border-zinc-100 last:border-b-0">
+            <div key={h.id} className="flex items-center justify-between p-4 border-b border-zinc-100 dark:border-zinc-800 last:border-b-0">
               <div>
                 <div className="text-sm font-medium">{WEEKDAY_NAMES[lang][h.weekday]}{h.title ? ` · ${h.title}` : ""}</div>
-                <div className="text-xs text-zinc-500 font-mono">{h.open_time} → {h.close_time} · slot {h.slot_interval_minutes}min · {h.default_duration_minutes}min</div>
+                <div className="text-xs text-zinc-500 dark:text-zinc-400 dark:text-zinc-500 font-mono">{h.open_time} → {h.close_time} · slot {h.slot_interval_minutes}min · {h.default_duration_minutes}min</div>
               </div>
               <button onClick={() => remove(h.id)} className="p-1.5 rounded hover:bg-red-50 text-red-700"><Trash2 size={14} /></button>
             </div>
           ))}
         </div>
-        <div className="bg-white border border-zinc-200 rounded-lg overflow-hidden">
-          <div className="p-4 border-b border-zinc-100 label-eyebrow">{t("hours.exceptions")}</div>
-          {exceptions.length === 0 && <div className="p-8 text-center text-zinc-400">—</div>}
+        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden">
+          <div className="p-4 border-b border-zinc-100 dark:border-zinc-800 label-eyebrow">{t("hours.exceptions")}</div>
+          {exceptions.length === 0 && <div className="p-8 text-center text-zinc-400 dark:text-zinc-500">—</div>}
           {exceptions.sort((a, b) => a.specific_date.localeCompare(b.specific_date)).map((h) => (
-            <div key={h.id} className="flex items-center justify-between p-4 border-b border-zinc-100 last:border-b-0">
+            <div key={h.id} className="flex items-center justify-between p-4 border-b border-zinc-100 dark:border-zinc-800 last:border-b-0">
               <div>
                 <div className="text-sm font-medium">{h.specific_date}{h.title ? ` · ${h.title}` : ""}</div>
-                <div className="text-xs text-zinc-500 font-mono">
+                <div className="text-xs text-zinc-500 dark:text-zinc-400 dark:text-zinc-500 font-mono">
                   {h.is_closed ? "Chiuso" : `${h.open_time} → ${h.close_time}`}
                 </div>
               </div>

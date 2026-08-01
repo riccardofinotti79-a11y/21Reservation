@@ -209,3 +209,12 @@ Stack: FastAPI + MongoDB + React/Tailwind + JWT auth + 5s polling + Resend email
 - `BookingsList.js`: ora legge `?date=` da `useSearchParams` per inizializzare lo stato (fallback a `todayStr()` se assente). Sync bidirezionale: cambiare data manualmente aggiorna il query param (o lo rimuove se torna a oggi).
 - `BookingsCalendar` responsive: outer `p-4 sm:p-8`, header title `text-4xl sm:text-5xl`, prev/next `min-w-[40px] min-h-[40px]`, month title `min-w-0 sm:min-w-[220px]`, celle giorno `p-2 sm:p-3 min-h-[64px] sm:min-h-[110px]` con font `text-base sm:text-lg` e labels "prenotazioni/ospiti" nascoste sotto sm (`hidden sm:inline`), header giorni `px-1 sm:px-3`.
 - Verificato: 375px + 320px → nessun overflow orizzontale; click 2/5 agosto → URL e date-picker si aggiornano correttamente; default List (senza query) → oggi.
+
+## Iteration 13 (2026-02-15) — Dark mode sweep
+- Sostituzioni idempotenti (perl con negative lookahead per `dark:`) su BookingsList, Customers, Tables, OpeningHours, CustomerDetail, Reports, Dashboard, BookingsCalendar, StatusBadge:
+  * `bg-white` → `+ dark:bg-zinc-900`, `border-zinc-200` → `+ dark:border-zinc-800`, `border-zinc-100` → `+ dark:border-zinc-800`
+  * `bg-zinc-50` → `+ dark:bg-zinc-800/60`, `bg-zinc-50/50` → `+ dark:bg-zinc-800/40`
+  * `text-zinc-500/400/600/900` → varianti dark coerenti, `hover:bg-zinc-100/50` → varianti dark
+- `StatusBadge`: aggiunte varianti `dark:bg-{color}-950/60 dark:text-{color}-200 dark:border-{color}-800/60` per tutti i 6 status (pending/accepted/seated/declined/no_show/cancelled).
+- Contrasto: date/time input in BookingsList, CustomerDetail, Reports ora forzano `dark:text-zinc-100` per superare l'auto-color nero del native picker su bg scuro.
+- Verificato a 375px in dark mode: `docSW==docCW` su tutte le 7 pagine; sfondo card `rgb(24,24,27)` (zinc-900); testi/badge leggibili; light mode invariato.

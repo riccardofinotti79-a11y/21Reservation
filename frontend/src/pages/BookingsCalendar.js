@@ -66,23 +66,23 @@ export default function BookingsCalendar() {
       <div className="flex items-end justify-between mb-6 flex-wrap gap-3">
         <div>
           <div className="label-eyebrow">{t("nav.bookings")}</div>
-          <h1 className="font-serif-display text-4xl sm:text-5xl text-zinc-900 dark:text-zinc-50">{t("nav.calendar")}</h1>
+          <h1 className="font-serif-display text-4xl sm:text-5xl text-zinc-900 dark:text-zinc-100 dark:text-zinc-50">{t("nav.calendar")}</h1>
         </div>
         <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-between sm:justify-end">
-          <button data-testid="cal-prev" onClick={goPrev} className="min-w-[40px] min-h-[40px] p-2 border border-zinc-200 dark:border-zinc-700 rounded-md bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 flex items-center justify-center">
+          <button data-testid="cal-prev" onClick={goPrev} className="min-w-[40px] min-h-[40px] p-2 border border-zinc-200 dark:border-zinc-800 dark:border-zinc-700 rounded-md bg-white dark:bg-zinc-900 dark:bg-zinc-900 hover:bg-zinc-50 dark:bg-zinc-800/60 dark:hover:bg-zinc-800 flex items-center justify-center">
             <ChevronLeft size={16} />
           </button>
-          <div className="min-w-0 sm:min-w-[220px] flex-1 sm:flex-none text-center font-serif-display text-xl sm:text-2xl text-zinc-900 dark:text-zinc-50">
-            {MONTH_NAMES[lang][month - 1]} <span className="text-zinc-400">{year}</span>
+          <div className="min-w-0 sm:min-w-[220px] flex-1 sm:flex-none text-center font-serif-display text-xl sm:text-2xl text-zinc-900 dark:text-zinc-100 dark:text-zinc-50">
+            {MONTH_NAMES[lang][month - 1]} <span className="text-zinc-400 dark:text-zinc-500">{year}</span>
           </div>
-          <button data-testid="cal-next" onClick={goNext} className="min-w-[40px] min-h-[40px] p-2 border border-zinc-200 dark:border-zinc-700 rounded-md bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 flex items-center justify-center">
+          <button data-testid="cal-next" onClick={goNext} className="min-w-[40px] min-h-[40px] p-2 border border-zinc-200 dark:border-zinc-800 dark:border-zinc-700 rounded-md bg-white dark:bg-zinc-900 dark:bg-zinc-900 hover:bg-zinc-50 dark:bg-zinc-800/60 dark:hover:bg-zinc-800 flex items-center justify-center">
             <ChevronRight size={16} />
           </button>
         </div>
       </div>
 
       {/* Workload legend */}
-      <div className="flex items-center gap-4 mb-3 flex-wrap text-xs text-zinc-600 dark:text-zinc-400" data-testid="workload-legend">
+      <div className="flex items-center gap-4 mb-3 flex-wrap text-xs text-zinc-600 dark:text-zinc-300 dark:text-zinc-400 dark:text-zinc-500" data-testid="workload-legend">
         {Object.entries(LEVEL).map(([k, v]) => (
           <div key={k} className="flex items-center gap-2">
             <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: v.dot }} />
@@ -91,9 +91,9 @@ export default function BookingsCalendar() {
         ))}
       </div>
 
-      <div className="grid grid-cols-7 gap-px bg-zinc-200 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden">
+      <div className="grid grid-cols-7 gap-px bg-zinc-200 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 dark:border-zinc-800 rounded-lg overflow-hidden">
         {WEEKDAY_NAMES[lang].map((n) => (
-          <div key={n} className="bg-zinc-50 dark:bg-zinc-900 px-1 sm:px-3 py-2 label-eyebrow text-center sm:text-left">{n.slice(0, 3)}</div>
+          <div key={n} className="bg-zinc-50 dark:bg-zinc-800/60 dark:bg-zinc-900 px-1 sm:px-3 py-2 label-eyebrow text-center sm:text-left">{n.slice(0, 3)}</div>
         ))}
         {cells.map((d, i) => {
           if (!d) return <div key={i} className="bg-zinc-50/60 dark:bg-zinc-900/40 min-h-[64px] sm:min-h-[110px]" />;
@@ -107,10 +107,10 @@ export default function BookingsCalendar() {
               key={i}
               data-testid={`cal-day-${dstr}`}
               onClick={() => nav(`/bookings/list?date=${dstr}`)}
-              className={`bg-white dark:bg-zinc-900 text-left p-2 sm:p-3 min-h-[64px] sm:min-h-[110px] hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors ${isToday ? "ring-2 ring-inset ring-zinc-900 dark:ring-zinc-100" : ""}`}
+              className={`bg-white dark:bg-zinc-900 dark:bg-zinc-900 text-left p-2 sm:p-3 min-h-[64px] sm:min-h-[110px] hover:bg-zinc-50 dark:bg-zinc-800/60 dark:hover:bg-zinc-800 transition-colors ${isToday ? "ring-2 ring-inset ring-zinc-900 dark:ring-zinc-100" : ""}`}
             >
               <div className="flex items-center justify-between gap-1">
-                <div className={`text-base sm:text-lg font-serif-display ${isToday ? "text-zinc-900 dark:text-zinc-50" : "text-zinc-600 dark:text-zinc-300"}`}>{d}</div>
+                <div className={`text-base sm:text-lg font-serif-display ${isToday ? "text-zinc-900 dark:text-zinc-100 dark:text-zinc-50" : "text-zinc-600 dark:text-zinc-300 dark:text-zinc-300"}`}>{d}</div>
                 {dot && (
                   <span
                     data-testid={`workload-${dstr}-${level}`}
@@ -123,12 +123,12 @@ export default function BookingsCalendar() {
               {s && (
                 <div className="mt-2 sm:mt-3 space-y-0.5 sm:space-y-1">
                   <div className="text-[10px] sm:text-xs">
-                    <span className="font-mono text-zinc-900 dark:text-zinc-100 font-semibold">{s.bookings}</span>
-                    <span className="text-zinc-500 dark:text-zinc-400 ml-1 hidden sm:inline">{t("cal.reservations")}</span>
+                    <span className="font-mono text-zinc-900 dark:text-zinc-100 dark:text-zinc-100 font-semibold">{s.bookings}</span>
+                    <span className="text-zinc-500 dark:text-zinc-400 dark:text-zinc-500 dark:text-zinc-400 dark:text-zinc-500 ml-1 hidden sm:inline">{t("cal.reservations")}</span>
                   </div>
                   <div className="text-[10px] sm:text-xs">
-                    <span className="font-mono text-zinc-900 dark:text-zinc-100 font-semibold">{s.guests}</span>
-                    <span className="text-zinc-500 dark:text-zinc-400 ml-1 hidden sm:inline">{t("cal.guests")}</span>
+                    <span className="font-mono text-zinc-900 dark:text-zinc-100 dark:text-zinc-100 font-semibold">{s.guests}</span>
+                    <span className="text-zinc-500 dark:text-zinc-400 dark:text-zinc-500 dark:text-zinc-400 dark:text-zinc-500 ml-1 hidden sm:inline">{t("cal.guests")}</span>
                   </div>
                 </div>
               )}
