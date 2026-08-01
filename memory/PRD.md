@@ -196,3 +196,10 @@ Stack: FastAPI + MongoDB + React/Tailwind + JWT auth + 5s polling + Resend email
 - Comportamento riga (apre modale in edit) e quick-action (accept/decline/seated/no_show con `stopPropagation`) invariati.
 - Nuove chiavi i18n IT+EN: `common.search_placeholder`, `common.all_statuses`, `common.all_sources`, `common.clear_filters`, `common.no_results`.
 - Scope: solo `BookingsList.js` + `i18n.js`. Nessun cambio backend, nessun reload.
+
+## Iteration 11 (2026-02-15) — Mobile responsive tables
+- `BookingsList`, `Customers`, `Tables`: aggiunto hook `matchMedia("(max-width: 639px)")` con listener che switcha tra vista tabella (sm+) e card impilate (mobile). Solo una vista è renderizzata alla volta → i data-testid restano unici.
+- Su desktop le tabelle sono ora dentro un wrapper `overflow-x-auto` che confina lo scroll orizzontale dentro il box (mai a livello di pagina).
+- Toolbar (heading + azioni + filtri): `flex-wrap`, larghezze `w-full sm:w-auto` sugli input/select e `text-base sm:text-sm` (16px su mobile per evitare zoom iOS). Padding pagina `p-4 sm:p-8`.
+- Icone azione su mobile: tap area ≥40x40px (`min-w-[40px] min-h-[40px]`), bordo colorato di stato per leggibilità, spaziatura `gap-2`.
+- Verificato con screenshot a 375px e 320px: `document.documentElement.scrollWidth === clientWidth` su tutte e tre le pagine. Row/card tap → apre il modale (BookingsList), quick-action non lo apre, filtri combinabili funzionano, i customers link a `/customers/:id`.

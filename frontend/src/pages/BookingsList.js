@@ -16,6 +16,15 @@ export default function BookingsList() {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [sourceFilter, setSourceFilter] = useState("all");
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== "undefined" && window.matchMedia("(max-width: 639px)").matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 639px)");
+    const handler = (e) => setIsMobile(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
 
   const fetchBookings = useCallback(async () => {
     const [b, tb, ar, cu] = await Promise.all([
@@ -66,16 +75,51 @@ export default function BookingsList() {
     catch { toast.error("Errore"); }
   };
 
+  const sortedFiltered = filteredBookings.slice().sort((a, b) => a.time.localeCompare(b.time));
+
+  const renderActions = (b) => (
+    <div className="flex items-center gap-2 sm:gap-1 justify-end" onClick={stop}>
+      {b.status === "pending" && (
+        <>
+          <button data-testid={`action-accept-${b.id}`} title={t("status.accepted")}
+                  onClick={(e) => { stop(e); setStatus(b.id, "accepted"); }}
+                  className="min-w-[40px] min-h-[40px] sm:min-w-0 sm:min-h-0 p-2 sm:p-1.5 rounded-md sm:rounded hover:bg-emerald-100 text-emerald-700 border border-emerald-200 sm:border-0 flex items-center justify-center">
+            <Check size={18} className="sm:hidden" /><Check size={16} className="hidden sm:block" />
+          </button>
+          <button data-testid={`action-decline-${b.id}`} title={t("status.declined")}
+                  onClick={(e) => { stop(e); setStatus(b.id, "declined"); }}
+                  className="min-w-[40px] min-h-[40px] sm:min-w-0 sm:min-h-0 p-2 sm:p-1.5 rounded-md sm:rounded hover:bg-red-100 text-red-700 border border-red-200 sm:border-0 flex items-center justify-center">
+            <XIcon size={18} className="sm:hidden" /><XIcon size={16} className="hidden sm:block" />
+          </button>
+        </>
+      )}
+      {b.status === "accepted" && (
+        <button data-testid={`action-seated-${b.id}`} title={t("status.seated")}
+                onClick={(e) => { stop(e); setStatus(b.id, "seated"); }}
+                className="min-w-[40px] min-h-[40px] sm:min-w-0 sm:min-h-0 p-2 sm:p-1.5 rounded-md sm:rounded hover:bg-blue-100 text-blue-700 border border-blue-200 sm:border-0 flex items-center justify-center">
+          <UserCheck size={18} className="sm:hidden" /><UserCheck size={16} className="hidden sm:block" />
+        </button>
+      )}
+      {(b.status === "accepted" || b.status === "seated") && (
+        <button data-testid={`action-noshow-${b.id}`} title={t("status.no_show")}
+                onClick={(e) => { stop(e); setStatus(b.id, "no_show"); }}
+                className="min-w-[40px] min-h-[40px] sm:min-w-0 sm:min-h-0 p-2 sm:p-1.5 rounded-md sm:rounded hover:bg-slate-100 text-slate-700 border border-slate-200 sm:border-0 flex items-center justify-center">
+          <Ghost size={18} className="sm:hidden" /><Ghost size={16} className="hidden sm:block" />
+        </button>
+      )}
+    </div>
+  );
+
   return (
-    <div className="p-8 max-w-[1400px] mx-auto">
-      <div className="flex items-end justify-between gap-4 flex-wrap mb-8">
+    <div className="p-4 sm:p-8 max-w-[1400px] mx-auto">
+      <div className="flex items-end justify-between gap-4 flex-wrap mb-6 sm:mb-8">
         <div>
           <div className="label-eyebrow">{t("nav.bookings")}</div>
-          <h1 className="font-serif-display text-5xl">{t("nav.list")}</h1>
+          <h1 className="font-serif-display text-4xl sm:text-5xl">{t("nav.list")}</h1>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap w-full sm:w-auto">
           <input data-testid="list-date-picker" type="date" value={date} onChange={(e) => setDate(e.target.value)}
-                 className="border border-zinc-200 rounded-md px-3 py-2 bg-white" />
+                 className="flex-1 sm:flex-none border border-zinc-200 rounded-md px-3 py-2 bg-white text-base sm:text-sm" />
           <button data-testid="list-today-btn" onClick={() => setDate(todayStr())}
                   className="px-3 py-2 border border-zinc-200 rounded-md text-sm hover:bg-zinc-100">
             {t("common.today")}
@@ -87,37 +131,37 @@ export default function BookingsList() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white border border-zinc-200 rounded-lg p-5">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6">
+        <div className="bg-white border border-zinc-200 rounded-lg p-4 sm:p-5">
           <div className="label-eyebrow">{t("reports.total_bookings")}</div>
-          <div className="text-4xl font-serif-display mt-2" data-testid="stat-bookings">{bookings.length}</div>
+          <div className="text-3xl sm:text-4xl font-serif-display mt-2" data-testid="stat-bookings">{bookings.length}</div>
         </div>
-        <div className="bg-white border border-zinc-200 rounded-lg p-5">
+        <div className="bg-white border border-zinc-200 rounded-lg p-4 sm:p-5">
           <div className="label-eyebrow">{t("reports.total_guests")}</div>
-          <div className="text-4xl font-serif-display mt-2" data-testid="stat-guests">{totalGuests}</div>
+          <div className="text-3xl sm:text-4xl font-serif-display mt-2" data-testid="stat-guests">{totalGuests}</div>
         </div>
-        <div className="bg-white border border-zinc-200 rounded-lg p-5">
+        <div className="bg-white border border-zinc-200 rounded-lg p-4 sm:p-5">
           <div className="label-eyebrow">{t("status.pending")}</div>
-          <div className="text-4xl font-serif-display mt-2" data-testid="stat-pending">
+          <div className="text-3xl sm:text-4xl font-serif-display mt-2" data-testid="stat-pending">
             {bookings.filter((b) => b.status === "pending").length}
           </div>
         </div>
-        <div className="bg-white border border-zinc-200 rounded-lg p-5">
+        <div className="bg-white border border-zinc-200 rounded-lg p-4 sm:p-5">
           <div className="label-eyebrow">{t("status.seated")}</div>
-          <div className="text-4xl font-serif-display mt-2" data-testid="stat-seated">
+          <div className="text-3xl sm:text-4xl font-serif-display mt-2" data-testid="stat-seated">
             {bookings.filter((b) => b.status === "seated").length}
           </div>
         </div>
       </div>
 
-      <div className="bg-white border border-zinc-200 rounded-lg p-4 mb-4 flex flex-wrap items-center gap-3">
+      <div className="bg-white border border-zinc-200 rounded-lg p-3 sm:p-4 mb-4 flex flex-wrap items-center gap-2 sm:gap-3">
         <input data-testid="list-search" type="search" value={query}
                onChange={(e) => setQuery(e.target.value)}
                placeholder={t("common.search_placeholder")}
-               className="flex-1 min-w-[200px] border border-zinc-200 rounded-md px-3 py-2 text-sm" />
+               className="w-full sm:flex-1 sm:min-w-[200px] border border-zinc-200 rounded-md px-3 py-2 text-base sm:text-sm" />
         <select data-testid="list-filter-status" value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="border border-zinc-200 rounded-md px-3 py-2 text-sm bg-white">
+                className="flex-1 sm:flex-none border border-zinc-200 rounded-md px-3 py-2 text-base sm:text-sm bg-white">
           <option value="all">{t("common.all_statuses")}</option>
           <option value="pending">{t("status.pending")}</option>
           <option value="accepted">{t("status.accepted")}</option>
@@ -128,7 +172,7 @@ export default function BookingsList() {
         </select>
         <select data-testid="list-filter-source" value={sourceFilter}
                 onChange={(e) => setSourceFilter(e.target.value)}
-                className="border border-zinc-200 rounded-md px-3 py-2 text-sm bg-white">
+                className="flex-1 sm:flex-none border border-zinc-200 rounded-md px-3 py-2 text-base sm:text-sm bg-white">
           <option value="all">{t("common.all_sources")}</option>
           <option value="phone">{t("source.phone")}</option>
           <option value="online">{t("source.online")}</option>
@@ -146,83 +190,87 @@ export default function BookingsList() {
         </div>
       </div>
 
-      <div className="bg-white border border-zinc-200 rounded-lg overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-zinc-50 border-b border-zinc-200 text-zinc-500">
-            <tr>
-              <th className="text-left px-4 py-3 label-eyebrow">{t("common.time")}</th>
-              <th className="text-left px-4 py-3 label-eyebrow">{t("common.name")}</th>
-              <th className="text-left px-4 py-3 label-eyebrow">{t("common.persons")}</th>
-              <th className="text-left px-4 py-3 label-eyebrow">{t("common.table")}</th>
-              <th className="text-left px-4 py-3 label-eyebrow">{t("common.source")}</th>
-              <th className="text-left px-4 py-3 label-eyebrow">{t("common.status")}</th>
-              <th className="text-right px-4 py-3 label-eyebrow">{t("common.actions")}</th>
-            </tr>
-          </thead>
-          <tbody data-testid="bookings-tbody">
-            {filteredBookings.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-16 text-center text-zinc-400">
-                {bookings.length === 0 ? "Nessuna prenotazione per questa data" : t("common.no_results")}
-              </td></tr>
-            )}
-            {filteredBookings
-              .slice()
-              .sort((a, b) => a.time.localeCompare(b.time))
-              .map((b) => {
-                const c = customerById[b.customer_id];
-                const tbls = (b.table_ids || []).map((id) => tableById[id]?.name || id).join(", ");
-                return (
-                  <tr key={b.id}
-                      onClick={() => openEdit(b)}
-                      className="border-b border-zinc-100 hover:bg-zinc-50/50 transition-colors cursor-pointer"
-                      data-testid={`booking-row-${b.id}`}>
-                    <td className="px-4 py-3 font-mono">{b.time}</td>
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-zinc-900">{c?.name || "—"}</div>
-                      <div className="text-xs text-zinc-500">{c?.phone || c?.email || ""}</div>
-                    </td>
-                    <td className="px-4 py-3 font-mono">{b.persons}</td>
-                    <td className="px-4 py-3">{tbls || "—"}</td>
-                    <td className="px-4 py-3 text-xs uppercase text-zinc-500 tracking-wider">{t(`source.${b.source}`)}</td>
-                    <td className="px-4 py-3"><StatusBadge status={b.status} /></td>
-                    <td className="px-4 py-3" onClick={stop}>
-                      <div className="flex items-center justify-end gap-1">
-                        {b.status === "pending" && (
-                          <>
-                            <button data-testid={`action-accept-${b.id}`} title={t("status.accepted")}
-                                    onClick={(e) => { stop(e); setStatus(b.id, "accepted"); }}
-                                    className="p-1.5 rounded hover:bg-emerald-100 text-emerald-700">
-                              <Check size={16} />
-                            </button>
-                            <button data-testid={`action-decline-${b.id}`} title={t("status.declined")}
-                                    onClick={(e) => { stop(e); setStatus(b.id, "declined"); }}
-                                    className="p-1.5 rounded hover:bg-red-100 text-red-700">
-                              <XIcon size={16} />
-                            </button>
-                          </>
-                        )}
-                        {b.status === "accepted" && (
-                          <button data-testid={`action-seated-${b.id}`} title={t("status.seated")}
-                                  onClick={(e) => { stop(e); setStatus(b.id, "seated"); }}
-                                  className="p-1.5 rounded hover:bg-blue-100 text-blue-700">
-                            <UserCheck size={16} />
-                          </button>
-                        )}
-                        {(b.status === "accepted" || b.status === "seated") && (
-                          <button data-testid={`action-noshow-${b.id}`} title={t("status.no_show")}
-                                  onClick={(e) => { stop(e); setStatus(b.id, "no_show"); }}
-                                  className="p-1.5 rounded hover:bg-slate-100 text-slate-700">
-                            <Ghost size={16} />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-          </tbody>
-        </table>
-      </div>
+      {isMobile ? (
+        <div className="bg-white border border-zinc-200 rounded-lg overflow-hidden divide-y divide-zinc-100" data-testid="bookings-tbody">
+          {sortedFiltered.length === 0 && (
+            <div className="px-4 py-12 text-center text-zinc-400 text-sm">
+              {bookings.length === 0 ? "Nessuna prenotazione per questa data" : t("common.no_results")}
+            </div>
+          )}
+          {sortedFiltered.map((b) => {
+            const c = customerById[b.customer_id];
+            const tbls = (b.table_ids || []).map((id) => tableById[id]?.name || id).join(", ");
+            return (
+              <div key={b.id} onClick={() => openEdit(b)}
+                   className="p-4 active:bg-zinc-100 cursor-pointer"
+                   data-testid={`booking-row-${b.id}`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="font-mono text-2xl leading-none">{b.time}</div>
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 mt-2">{t(`source.${b.source}`)}</div>
+                  </div>
+                  <StatusBadge status={b.status} />
+                </div>
+                <div className="mt-3">
+                  <div className="font-medium text-zinc-900 break-words">{c?.name || "—"}</div>
+                  <div className="text-sm text-zinc-500 break-all">{c?.phone || c?.email || ""}</div>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                  <div><span className="text-zinc-400 text-[10px] uppercase tracking-widest mr-1">{t("common.persons")}</span><span className="font-mono">{b.persons}</span></div>
+                  <div><span className="text-zinc-400 text-[10px] uppercase tracking-widest mr-1">{t("common.table")}</span>{tbls || "—"}</div>
+                </div>
+                <div className="mt-4">{renderActions(b)}</div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="bg-white border border-zinc-200 rounded-lg overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-zinc-50 border-b border-zinc-200 text-zinc-500">
+                <tr>
+                  <th className="text-left px-4 py-3 label-eyebrow">{t("common.time")}</th>
+                  <th className="text-left px-4 py-3 label-eyebrow">{t("common.name")}</th>
+                  <th className="text-left px-4 py-3 label-eyebrow">{t("common.persons")}</th>
+                  <th className="text-left px-4 py-3 label-eyebrow">{t("common.table")}</th>
+                  <th className="text-left px-4 py-3 label-eyebrow">{t("common.source")}</th>
+                  <th className="text-left px-4 py-3 label-eyebrow">{t("common.status")}</th>
+                  <th className="text-right px-4 py-3 label-eyebrow">{t("common.actions")}</th>
+                </tr>
+              </thead>
+              <tbody data-testid="bookings-tbody">
+                {sortedFiltered.length === 0 && (
+                  <tr><td colSpan={7} className="px-4 py-16 text-center text-zinc-400">
+                    {bookings.length === 0 ? "Nessuna prenotazione per questa data" : t("common.no_results")}
+                  </td></tr>
+                )}
+                {sortedFiltered.map((b) => {
+                  const c = customerById[b.customer_id];
+                  const tbls = (b.table_ids || []).map((id) => tableById[id]?.name || id).join(", ");
+                  return (
+                    <tr key={b.id}
+                        onClick={() => openEdit(b)}
+                        className="border-b border-zinc-100 hover:bg-zinc-50/50 transition-colors cursor-pointer"
+                        data-testid={`booking-row-${b.id}`}>
+                      <td className="px-4 py-3 font-mono">{b.time}</td>
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-zinc-900">{c?.name || "—"}</div>
+                        <div className="text-xs text-zinc-500">{c?.phone || c?.email || ""}</div>
+                      </td>
+                      <td className="px-4 py-3 font-mono">{b.persons}</td>
+                      <td className="px-4 py-3">{tbls || "—"}</td>
+                      <td className="px-4 py-3 text-xs uppercase text-zinc-500 tracking-wider">{t(`source.${b.source}`)}</td>
+                      <td className="px-4 py-3"><StatusBadge status={b.status} /></td>
+                      <td className="px-4 py-3">{renderActions(b)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <NewBookingModal
         open={modalOpen}
