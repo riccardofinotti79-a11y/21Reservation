@@ -203,3 +203,9 @@ Stack: FastAPI + MongoDB + React/Tailwind + JWT auth + 5s polling + Resend email
 - Toolbar (heading + azioni + filtri): `flex-wrap`, larghezze `w-full sm:w-auto` sugli input/select e `text-base sm:text-sm` (16px su mobile per evitare zoom iOS). Padding pagina `p-4 sm:p-8`.
 - Icone azione su mobile: tap area ≥40x40px (`min-w-[40px] min-h-[40px]`), bordo colorato di stato per leggibilità, spaziatura `gap-2`.
 - Verificato con screenshot a 375px e 320px: `document.documentElement.scrollWidth === clientWidth` su tutte e tre le pagine. Row/card tap → apre il modale (BookingsList), quick-action non lo apre, filtri combinabili funzionano, i customers link a `/customers/:id`.
+
+## Iteration 12 (2026-02-15) — Calendar → List date passthrough + mobile calendar
+- `BookingsCalendar.js`: il click su una cella navigava sempre a `/bookings/list` senza data → List si apriva sempre su oggi. Ora naviga a `/bookings/list?date=YYYY-MM-DD` per il giorno cliccato.
+- `BookingsList.js`: ora legge `?date=` da `useSearchParams` per inizializzare lo stato (fallback a `todayStr()` se assente). Sync bidirezionale: cambiare data manualmente aggiorna il query param (o lo rimuove se torna a oggi).
+- `BookingsCalendar` responsive: outer `p-4 sm:p-8`, header title `text-4xl sm:text-5xl`, prev/next `min-w-[40px] min-h-[40px]`, month title `min-w-0 sm:min-w-[220px]`, celle giorno `p-2 sm:p-3 min-h-[64px] sm:min-h-[110px]` con font `text-base sm:text-lg` e labels "prenotazioni/ospiti" nascoste sotto sm (`hidden sm:inline`), header giorni `px-1 sm:px-3`.
+- Verificato: 375px + 320px → nessun overflow orizzontale; click 2/5 agosto → URL e date-picker si aggiornano correttamente; default List (senza query) → oggi.

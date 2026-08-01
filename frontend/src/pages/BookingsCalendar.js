@@ -62,20 +62,20 @@ export default function BookingsCalendar() {
   const todayIso = new Date().toISOString().slice(0, 10);
 
   return (
-    <div className="p-8 max-w-[1400px] mx-auto">
+    <div className="p-4 sm:p-8 max-w-[1400px] mx-auto">
       <div className="flex items-end justify-between mb-6 flex-wrap gap-3">
         <div>
           <div className="label-eyebrow">{t("nav.bookings")}</div>
-          <h1 className="font-serif-display text-5xl text-zinc-900 dark:text-zinc-50">{t("nav.calendar")}</h1>
+          <h1 className="font-serif-display text-4xl sm:text-5xl text-zinc-900 dark:text-zinc-50">{t("nav.calendar")}</h1>
         </div>
-        <div className="flex items-center gap-3">
-          <button data-testid="cal-prev" onClick={goPrev} className="p-2 border border-zinc-200 dark:border-zinc-700 rounded-md bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800">
+        <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-between sm:justify-end">
+          <button data-testid="cal-prev" onClick={goPrev} className="min-w-[40px] min-h-[40px] p-2 border border-zinc-200 dark:border-zinc-700 rounded-md bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 flex items-center justify-center">
             <ChevronLeft size={16} />
           </button>
-          <div className="min-w-[220px] text-center font-serif-display text-2xl text-zinc-900 dark:text-zinc-50">
+          <div className="min-w-0 sm:min-w-[220px] flex-1 sm:flex-none text-center font-serif-display text-xl sm:text-2xl text-zinc-900 dark:text-zinc-50">
             {MONTH_NAMES[lang][month - 1]} <span className="text-zinc-400">{year}</span>
           </div>
-          <button data-testid="cal-next" onClick={goNext} className="p-2 border border-zinc-200 dark:border-zinc-700 rounded-md bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800">
+          <button data-testid="cal-next" onClick={goNext} className="min-w-[40px] min-h-[40px] p-2 border border-zinc-200 dark:border-zinc-700 rounded-md bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 flex items-center justify-center">
             <ChevronRight size={16} />
           </button>
         </div>
@@ -93,10 +93,10 @@ export default function BookingsCalendar() {
 
       <div className="grid grid-cols-7 gap-px bg-zinc-200 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden">
         {WEEKDAY_NAMES[lang].map((n) => (
-          <div key={n} className="bg-zinc-50 dark:bg-zinc-900 px-3 py-2 label-eyebrow">{n.slice(0, 3)}</div>
+          <div key={n} className="bg-zinc-50 dark:bg-zinc-900 px-1 sm:px-3 py-2 label-eyebrow text-center sm:text-left">{n.slice(0, 3)}</div>
         ))}
         {cells.map((d, i) => {
-          if (!d) return <div key={i} className="bg-zinc-50/60 dark:bg-zinc-900/40 min-h-[110px]" />;
+          if (!d) return <div key={i} className="bg-zinc-50/60 dark:bg-zinc-900/40 min-h-[64px] sm:min-h-[110px]" />;
           const dstr = iso(year, month, d);
           const s = summary[dstr];
           const isToday = dstr === todayIso;
@@ -106,29 +106,29 @@ export default function BookingsCalendar() {
             <button
               key={i}
               data-testid={`cal-day-${dstr}`}
-              onClick={() => nav("/bookings/list")}
-              className={`bg-white dark:bg-zinc-900 text-left p-3 min-h-[110px] hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors ${isToday ? "ring-2 ring-inset ring-zinc-900 dark:ring-zinc-100" : ""}`}
+              onClick={() => nav(`/bookings/list?date=${dstr}`)}
+              className={`bg-white dark:bg-zinc-900 text-left p-2 sm:p-3 min-h-[64px] sm:min-h-[110px] hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors ${isToday ? "ring-2 ring-inset ring-zinc-900 dark:ring-zinc-100" : ""}`}
             >
-              <div className="flex items-center justify-between">
-                <div className={`text-lg font-serif-display ${isToday ? "text-zinc-900 dark:text-zinc-50" : "text-zinc-600 dark:text-zinc-300"}`}>{d}</div>
+              <div className="flex items-center justify-between gap-1">
+                <div className={`text-base sm:text-lg font-serif-display ${isToday ? "text-zinc-900 dark:text-zinc-50" : "text-zinc-600 dark:text-zinc-300"}`}>{d}</div>
                 {dot && (
                   <span
                     data-testid={`workload-${dstr}-${level}`}
-                    className="w-2.5 h-2.5 rounded-full"
+                    className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full shrink-0"
                     style={{ backgroundColor: dot }}
                     title={LEVEL[level].label}
                   />
                 )}
               </div>
               {s && (
-                <div className="mt-3 space-y-1">
-                  <div className="text-xs">
+                <div className="mt-2 sm:mt-3 space-y-0.5 sm:space-y-1">
+                  <div className="text-[10px] sm:text-xs">
                     <span className="font-mono text-zinc-900 dark:text-zinc-100 font-semibold">{s.bookings}</span>
-                    <span className="text-zinc-500 dark:text-zinc-400 ml-1">{t("cal.reservations")}</span>
+                    <span className="text-zinc-500 dark:text-zinc-400 ml-1 hidden sm:inline">{t("cal.reservations")}</span>
                   </div>
-                  <div className="text-xs">
+                  <div className="text-[10px] sm:text-xs">
                     <span className="font-mono text-zinc-900 dark:text-zinc-100 font-semibold">{s.guests}</span>
-                    <span className="text-zinc-500 dark:text-zinc-400 ml-1">{t("cal.guests")}</span>
+                    <span className="text-zinc-500 dark:text-zinc-400 ml-1 hidden sm:inline">{t("cal.guests")}</span>
                   </div>
                 </div>
               )}

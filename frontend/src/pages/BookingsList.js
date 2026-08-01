@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Plus, Check, X as XIcon, UserCheck, Ghost } from "lucide-react";
 import api from "../api";
@@ -11,11 +12,29 @@ function todayStr() { return new Date().toISOString().slice(0, 10); }
 
 export default function BookingsList() {
   const { t, lang } = useI18n();
-  const [date, setDate] = useState(todayStr());
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialDate = searchParams.get("date") || todayStr();
+  const [date, setDate] = useState(initialDate);
   const [modalOpen, setModalOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [sourceFilter, setSourceFilter] = useState("all");
+  // Sync when the URL ?date=... changes (e.g. clicking a calendar day)
+  useEffect(() => {
+    const q = searchParams.get("date");
+    if (q && q !== date) setDate(q);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+  // Keep the URL in sync when the user picks a different date manually
+  useEffect(() => {
+    const q = searchParams.get("date");
+    if (date !== todayStr() && date !== q) {
+      setSearchParams({ date }, { replace: true });
+    } else if (date === todayStr() && q) {
+      setSearchParams({}, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date]);
   const [isMobile, setIsMobile] = useState(
     typeof window !== "undefined" && window.matchMedia("(max-width: 639px)").matches
   );
