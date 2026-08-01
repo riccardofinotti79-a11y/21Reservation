@@ -67,7 +67,7 @@ function Kpi({ label, value, testId, dark }) {
   return (
     <div className={`rounded-lg p-5 border ${cls}`} data-testid={testId}>
       <div className={`label-eyebrow ${dark ? "" : ""}`} style={dark ? { color: "#a1a1aa" } : {}}>{label}</div>
-      <div className="text-4xl font-serif-display mt-2">{value}</div>
+      <div className={`text-4xl font-serif-display mt-2 ${dark ? "" : "text-zinc-900 dark:text-zinc-100"}`}>{value}</div>
     </div>
   );
 }

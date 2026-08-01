@@ -247,3 +247,10 @@ Stack: FastAPI + MongoDB + React/Tailwind + JWT auth + 5s polling + Resend email
 - `FloorPlan.js`: canvas 900x600 ora avvolto in wrapper `[data-testid=plan-scroll]` con `overflow-auto` + `WebkitOverflowScrolling: touch` e `maxHeight: min(70vh, 640px)`. Rimosso `maxWidth: 100%` dal canvas interno così mantiene la dimensione logica → tavoli fuori viewport diventano raggiungibili scorrendo.
 - Aggiunte varianti dark su outer padding, titolo, testo, chip aree, bottone Salva (`bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900`).
 - Verificato da testing agent (report `/app/test_reports/iteration_8.json`, success 100%): a 375px T4 raggiungibile scrollando `plan-scroll` (offsetLeft=460, dopo `scrollTo({left:440})` T4 rect entra nel container rect); a 460px stesso; a 1440px tutti T1..T7 visibili senza scroll; `docSW==docCW==375` (nessuno scroll orizzontale documento); cambio area chip funziona; drag&drop desktop snap 20px OK, `PATCH /api/tables/{id}` 200, counter reset a (0).
+
+## Iteration 18 (2026-02-15) — AUDIT_ cleanup + KPI contrast
+- Backend `_repair_data`: regex esteso a `^(TEST_|QA[ _]|AUDIT_)` per rimuovere anche i clienti seed dell'audit agent (es. "AUDIT_RETEST_Comet"). Idempotenza preservata. Verificato: seed 3 record (2 AUDIT_ + 1 "Auditorium Rossi") → post-restart AUDIT_ eliminati, Auditorium preservato.
+- Frontend KPI contrast:
+  * `BookingsList.js` stat-bookings / stat-guests / stat-pending / stat-seated ora hanno `text-zinc-900 dark:text-zinc-100` esplicito.
+  * `Reports.js` componente `Kpi`: valore numerico prende `text-zinc-900 dark:text-zinc-100` quando la card non è nella variante `dark` invertita (la variante dark inverte già bg+testo e resta bianca).
+- Verifica screenshot desktop light+dark: BookingsList KPI numbers `rgb(24,24,27)` in light, `rgb(244,244,245)` in dark; Reports card standard idem, card "Occupazione stimata" (invertita) resta con testo bianco su bg scuro.

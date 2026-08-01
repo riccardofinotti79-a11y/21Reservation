@@ -153,21 +153,21 @@ export default function BookingsList() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6">
         <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 sm:p-5">
           <div className="label-eyebrow">{t("reports.total_bookings")}</div>
-          <div className="text-3xl sm:text-4xl font-serif-display mt-2" data-testid="stat-bookings">{bookings.length}</div>
+          <div className="text-3xl sm:text-4xl font-serif-display mt-2 text-zinc-900 dark:text-zinc-100" data-testid="stat-bookings">{bookings.length}</div>
         </div>
         <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 sm:p-5">
           <div className="label-eyebrow">{t("reports.total_guests")}</div>
-          <div className="text-3xl sm:text-4xl font-serif-display mt-2" data-testid="stat-guests">{totalGuests}</div>
+          <div className="text-3xl sm:text-4xl font-serif-display mt-2 text-zinc-900 dark:text-zinc-100" data-testid="stat-guests">{totalGuests}</div>
         </div>
         <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 sm:p-5">
           <div className="label-eyebrow">{t("status.pending")}</div>
-          <div className="text-3xl sm:text-4xl font-serif-display mt-2" data-testid="stat-pending">
+          <div className="text-3xl sm:text-4xl font-serif-display mt-2 text-zinc-900 dark:text-zinc-100" data-testid="stat-pending">
             {bookings.filter((b) => b.status === "pending").length}
           </div>
         </div>
         <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 sm:p-5">
           <div className="label-eyebrow">{t("status.seated")}</div>
-          <div className="text-3xl sm:text-4xl font-serif-display mt-2" data-testid="stat-seated">
+          <div className="text-3xl sm:text-4xl font-serif-display mt-2 text-zinc-900 dark:text-zinc-100" data-testid="stat-seated">
             {bookings.filter((b) => b.status === "seated").length}
           </div>
         </div>
