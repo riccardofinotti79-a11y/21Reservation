@@ -254,3 +254,8 @@ Stack: FastAPI + MongoDB + React/Tailwind + JWT auth + 5s polling + Resend email
   * `BookingsList.js` stat-bookings / stat-guests / stat-pending / stat-seated ora hanno `text-zinc-900 dark:text-zinc-100` esplicito.
   * `Reports.js` componente `Kpi`: valore numerico prende `text-zinc-900 dark:text-zinc-100` quando la card non è nella variante `dark` invertita (la variante dark inverte già bg+testo e resta bianca).
 - Verifica screenshot desktop light+dark: BookingsList KPI numbers `rgb(24,24,27)` in light, `rgb(244,244,245)` in dark; Reports card standard idem, card "Occupazione stimata" (invertita) resta con testo bianco su bg scuro.
+
+## Iteration 19 (2026-02-15) — Theme persistence bug fix
+- `theme.js` riscritto: chiave unica `localStorage['theme']` = 'light'|'dark' come sorgente di verità (con migrazione dalla legacy `21r_dark`), `useLayoutEffect` per applicare la classe `.dark` PRIMA del paint, listener `storage` per multi-tab.
+- `public/index.html`: inline `<script>` prima del bundle React che legge `localStorage.theme` (o migra da `21r_dark`) e applica la classe su `<html>` PRE-PAINT — elimina il FOUC e il "flash" al reload/navigate.
+- Verifica testing agent (report `/app/test_reports/iteration_9.json`, 7/7 PASS): default light + toggle dark preservato su Lista/Tavoli/Planimetria/Calendario/Home; reverse dark→light idem; reload persiste; pre-paint dark applicato prima del mount React; migrazione legacy funziona; StorageEvent multi-tab funziona; bottone `theme-toggle` alterna correttamente il testo.
