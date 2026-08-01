@@ -1251,7 +1251,7 @@ async def _repair_data(db):
     """Idempotent one-off cleanup safe to run on every boot:
     (a) grid-place tables still at position (0,0), grouped by area (4/row, 120px step);
     (b) recompute total/no_show/cancelled counts for every customer;
-    (c) delete customers whose name starts with 'TEST_'.
+    (c) delete customers whose name starts with 'TEST_', 'QA ' or 'QA_'.
     """
     # (a) Grid-place stuck tables per area (any table still at 0,0 gets next free slot)
     def _slot_of(pos):
@@ -1309,8 +1309,8 @@ async def _repair_data(db):
                     "cancelled_count": cancelled,
                 }},
             )
-    # (c) Delete TEST_ customers
-    await db.customers.delete_many({"name": {"$regex": "^TEST_"}})
+    # (c) Delete synthetic test customers (TEST_*, QA *, QA_*)
+    await db.customers.delete_many({"name": {"$regex": "^(TEST_|QA[ _])"}})
 
 
 @app.on_event("shutdown")
