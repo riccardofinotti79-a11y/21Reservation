@@ -1,0 +1,30 @@
+{
+  "summary": "Iter 11 — Cruscotto Metriche Agenzia: 7/7 test pytest passati e verifica UI Playwright OK. GET /api/admin/metrics restituisce shape corretta (totals+per_restaurant) protetto da agency_admin (401 senza token, 403 owner/staff). Correttezza numerica verificata: nuovo ristorante 'Metrics Test A' creato con bookings=0/guests=0/customers=0, poi seed di 2 prenotazioni (2+3=5 ospiti) → metriche riflettono 2 bookings/5 guests. Isolamento tenant: demo invariato. Coerenza aggregata: sum(per_restaurant.bookings_total) == totals.bookings_total e active+suspended==total. Frontend: 4 MetricCard mostrano numeri (5/3/9/9), 5 righe cliente con MiniStat Totali/30gg/7gg/Ospiti/CRM e badge Attivo/Sospeso, ordinamento by name funziona (visibile in screenshot mobile: 21Reservation Demo prima di Metrics Test A). Owner autenticato su /admin vede 'Accesso negato'. Mobile 375px in dark: docSW==docCW (no overflow orizzontale), card impilate 2x2 leggibili su sfondo dark.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration11_metrics.py",
+    "/app/test_reports/pytest/iteration11.xml",
+    "/app/test_reports/iter11_mobile_dark.png"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "GET /api/admin/metrics: implementazione N+1 (loop restaurant → 4 query per ristorante: count_documents bookings totale/7d/30d + aggregate guests + count customers). Su scala (>50 clienti) può diventare lento; considerare una singola aggregate pipeline con $facet o $lookup che raggruppa per restaurant_id in una sola round-trip. Per fase 1 con pochi clienti va bene.",
+    "Coerenza date filter: bookings_7d/30d filtrano per booking.date >= dayN (stringa ISO), quindi includono prenotazioni future entro il range del confronto stringa. Semantica accettabile (indica 'attività recente + prossima') ma il label 'Ultimi 30 giorni' può essere fuorviante — considerare rinominare in 'Attività recente' o filtrare esplicitamente su created_at per prenotazioni storiche.",
+    "Nessun endpoint per eliminare ristoranti: eventuali cleanup restano come status=suspended a vita nel DB (già noto dall'iter 10)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration11_metrics.py (nuovo)"
+  ],
+  "success_rate": {"backend": "100% (7/7)", "frontend": "100% scenari testati"},
+  "test_credentials": "admin@21agency.com/agency123, owner@demo.com/demo1234, staff@demo.com/demo1234 — tutti funzionanti",
+  "seed_data_creation": "Creato ristorante 'Metrics Test A' (subdomain metrics-test-a-<ts>) con owner rossi+metrics<ts>@example.com; 2 prenotazioni inserite direttamente su db.bookings (nuovo ristorante non ha opening_hours/tables → POST /api/bookings 400). Al termine: ristorante sospeso + utente owner eliminato via /api/admin/users/{id}. Ristorante rimane in status=suspended (nessun endpoint di delete).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Cruscotto metriche funzionante end-to-end. Testids: metric-restaurants-total/metric-restaurants-active/metric-bookings-total/metric-bookings-30d, admin-sort (opzioni: bookings_30d default, bookings_total, name), admin-client-row-<subdomain>, admin-btn-new, admin-search. Nota: se selezioni righe cliente per cercare l'h3 del nome usa selettore più specifico come 'h3.font-serif-display' — il generico '.font-semibold' matcha anche i valori numerici delle MiniStat. Ambient DB state: 5 ristoranti totali (3 attivi, 2 sospesi villa-rosa/villa-rosa-fe da iter 10 + 1 metrics-test-a-<ts> attivo lasciato sospeso). Backend logs puliti. Console frontend: warning noto 'pattern regex' su subdomain input (iter 10) — non impatta funzionalità.",
+  "rca of the issue": "N/A — nessun bug funzionale riscontrato."
+}

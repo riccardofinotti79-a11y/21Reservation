@@ -56,30 +56,36 @@ export function AdminLayout() {
 }
 
 export function AdminClients() {
-  const [rows, setRows] = useState([]);
+  const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
+  const [sortBy, setSortBy] = useState("bookings_30d"); // bookings_30d | bookings_total | name
   const load = useCallback(async () => {
     try {
-      const { data } = await api.get("/admin/restaurants");
-      setRows(data);
+      const { data } = await api.get("/admin/metrics");
+      setMetrics(data);
     } catch (e) { toast.error("Errore caricamento"); }
     finally { setLoading(false); }
   }, []);
   useEffect(() => { load(); }, [load]);
+
+  const rows = metrics?.per_restaurant || [];
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
-    if (!s) return rows;
-    return rows.filter((r) => r.name.toLowerCase().includes(s) || r.subdomain.toLowerCase().includes(s));
-  }, [rows, q]);
+    let list = s ? rows.filter((r) => r.name.toLowerCase().includes(s) || r.subdomain.toLowerCase().includes(s)) : rows.slice();
+    if (sortBy === "name") list.sort((a, b) => a.name.localeCompare(b.name));
+    else list.sort((a, b) => (b[sortBy] || 0) - (a[sortBy] || 0));
+    return list;
+  }, [rows, q, sortBy]);
+  const totals = metrics?.totals;
 
   return (
     <div className="p-4 sm:p-8 max-w-[1200px] mx-auto">
       <div className="flex items-end justify-between mb-6 sm:mb-8 flex-wrap gap-3">
         <div>
           <div className="label-eyebrow">Agenzia</div>
-          <h1 className="font-serif-display text-4xl sm:text-5xl text-zinc-900 dark:text-zinc-100">Clienti</h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-2">Ogni cliente è un ristorante isolato con i propri utenti e dati.</p>
+          <h1 className="font-serif-display text-4xl sm:text-5xl text-zinc-900 dark:text-zinc-100">Panoramica</h1>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-2">Attività aggregata di tutti i clienti dell'agenzia.</p>
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
           <input data-testid="admin-search" value={q} onChange={(e) => setQ(e.target.value)}
@@ -92,6 +98,23 @@ export function AdminClients() {
         </div>
       </div>
 
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6" data-testid="admin-metrics-cards">
+        <MetricCard label="Clienti totali" value={totals?.restaurants_total ?? "—"} testId="metric-restaurants-total" />
+        <MetricCard label="Attivi" value={totals?.restaurants_active ?? "—"} testId="metric-restaurants-active" />
+        <MetricCard label="Prenotazioni totali" value={totals?.bookings_total ?? "—"} testId="metric-bookings-total" />
+        <MetricCard label="Ultimi 30 giorni" value={totals?.bookings_30d ?? "—"} testId="metric-bookings-30d" />
+      </div>
+
+      <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+        <div className="text-xs text-zinc-500 dark:text-zinc-400 font-mono">{filtered.length} clienti</div>
+        <select data-testid="admin-sort" value={sortBy} onChange={(e) => setSortBy(e.target.value)}
+                className="border border-zinc-200 dark:border-zinc-800 rounded-md px-3 py-2 text-base sm:text-sm bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
+          <option value="bookings_30d">Ordina: ultimi 30gg</option>
+          <option value="bookings_total">Ordina: totali</option>
+          <option value="name">Ordina: nome</option>
+        </select>
+      </div>
+
       <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden" data-testid="admin-clients-list">
         {loading && <div className="p-12 text-center text-zinc-400 dark:text-zinc-500">…</div>}
         {!loading && filtered.length === 0 && (
@@ -100,14 +123,16 @@ export function AdminClients() {
         <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
           {filtered.map((r) => (
             <Link key={r.id} to={`/admin/${r.id}`} data-testid={`admin-client-row-${r.subdomain}`}
-                  className="flex flex-wrap items-center gap-3 p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
-              <div className="min-w-0 flex-1">
+                  className="flex flex-wrap items-center gap-3 sm:gap-6 p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+              <div className="min-w-0 flex-1 basis-full sm:basis-auto">
                 <div className="font-medium text-zinc-900 dark:text-zinc-100 break-words">{r.name}</div>
                 <div className="text-xs text-zinc-500 dark:text-zinc-400 font-mono">/{r.subdomain}</div>
               </div>
-              <div className="text-xs text-zinc-500 dark:text-zinc-400 font-mono flex items-center gap-1">
-                <Users size={12} /> {r.user_count}
-              </div>
+              <MiniStat label="Totali" value={r.bookings_total} />
+              <MiniStat label="30gg" value={r.bookings_30d} highlight />
+              <MiniStat label="7gg" value={r.bookings_7d} />
+              <MiniStat label="Ospiti" value={r.guests_total} />
+              <MiniStat label="CRM" value={r.customers_count} />
               <span className={`status-pill ${r.status === "active" ? "bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-200 dark:border-emerald-800/60" : "bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/60 dark:text-rose-200 dark:border-rose-800/60"}`}>
                 {r.status === "active" ? "Attivo" : "Sospeso"}
               </span>
@@ -115,6 +140,24 @@ export function AdminClients() {
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+function MetricCard({ label, value, testId }) {
+  return (
+    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 sm:p-5">
+      <div className="label-eyebrow">{label}</div>
+      <div className="text-3xl sm:text-4xl font-serif-display mt-2 text-zinc-900 dark:text-zinc-100" data-testid={testId}>{value}</div>
+    </div>
+  );
+}
+
+function MiniStat({ label, value, highlight }) {
+  return (
+    <div className="flex flex-col items-start sm:items-end min-w-[64px]">
+      <div className="text-[10px] uppercase tracking-widest font-mono text-zinc-400 dark:text-zinc-500">{label}</div>
+      <div className={`font-mono text-sm ${highlight ? "font-semibold text-zinc-900 dark:text-zinc-100" : "text-zinc-700 dark:text-zinc-300"}`}>{value}</div>
     </div>
   );
 }

@@ -126,6 +126,48 @@ async def me(cur=Depends(get_current_user)):
 
 
 # ==================== ADMIN (Agency portal) ====================
+@api.get("/admin/metrics")
+async def admin_metrics(_=Depends(require_agency_admin)):
+    now = utc_now()
+    day7 = (now - timedelta(days=7)).date().isoformat()
+    day30 = (now - timedelta(days=30)).date().isoformat()
+    restaurants = await db.restaurants.find({}, NO_ID).to_list(2000)
+    per_r = []
+    total_bookings = 0
+    total_30d = 0
+    for r in restaurants:
+        rid = r["id"]
+        b_total = await db.bookings.count_documents({"restaurant_id": rid})
+        b_7d = await db.bookings.count_documents({"restaurant_id": rid, "date": {"$gte": day7}})
+        b_30d = await db.bookings.count_documents({"restaurant_id": rid, "date": {"$gte": day30}})
+        guests_pipe = await db.bookings.aggregate([
+            {"$match": {"restaurant_id": rid}},
+            {"$group": {"_id": None, "g": {"$sum": "$persons"}}},
+        ]).to_list(1)
+        guests_total = int(guests_pipe[0]["g"]) if guests_pipe else 0
+        customers_count = await db.customers.count_documents({"restaurant_id": rid})
+        per_r.append({
+            "id": rid, "name": r["name"], "subdomain": r["subdomain"],
+            "status": r.get("status", "active"),
+            "bookings_total": b_total, "bookings_7d": b_7d, "bookings_30d": b_30d,
+            "guests_total": guests_total, "customers_count": customers_count,
+        })
+        total_bookings += b_total
+        total_30d += b_30d
+    active = sum(1 for r in restaurants if r.get("status", "active") == "active")
+    suspended = len(restaurants) - active
+    return {
+        "totals": {
+            "restaurants_total": len(restaurants),
+            "restaurants_active": active,
+            "restaurants_suspended": suspended,
+            "bookings_total": total_bookings,
+            "bookings_30d": total_30d,
+        },
+        "per_restaurant": per_r,
+    }
+
+
 @api.get("/admin/restaurants", response_model=List[AdminRestaurantSummary])
 async def admin_list_restaurants(_=Depends(require_agency_admin)):
     restaurants = await db.restaurants.find({}, NO_ID).to_list(2000)
