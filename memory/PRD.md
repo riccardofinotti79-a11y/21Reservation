@@ -285,3 +285,12 @@ Stack: FastAPI + MongoDB + React/Tailwind + JWT auth + 5s polling + Resend email
 - Backend 7/7 pytest: shape response corretta, 401/403/200 su agency_admin vs owner/staff, provisioning nuovo ristorante con bookings=0 poi 2 prenotazioni → metriche riflettono 2/5, isolamento demo invariato, coerenza aggregata (`sum(per_r.bookings_total) == totals.bookings_total`).
 - Frontend: 4 MetricCard visibili (5/3/9/9 nell'ambiente di test), 5 righe cliente con MiniStat + badge Attivo/Sospeso, `admin-sort` by name funziona, owner su `/admin` → 'Accesso negato', mobile 375 dark senza overflow.
 - Note per il futuro: metriche implementate come N+1 (accettabile Fase 1 con pochi clienti); su scala convertire in singola aggregate pipeline con `$facet`.
+
+## Iteration 22 (2026-02-16) — Admin portal: logout + theme toggle + mobile drawer
+- `AdminLayout` (in `AdminPortal.js`) riscritta seguendo il pattern del Dashboard staff:
+  * Top bar mobile persistente con `[data-testid=admin-mobile-menu-toggle]` (hamburger) + titolo "Portale Agenzia" + toggle tema `[data-testid=admin-theme-toggle-mobile]` (sun/moon icon).
+  * Sidebar diventa drawer mobile (translate-x + backdrop) e resta sidebar fissa da lg+.
+  * Sidebar footer: user info (nome + email), pulsante `[data-testid=admin-theme-toggle]` con testo "Tema chiaro/scuro" + icona Sun/Moon, pulsante `[data-testid=admin-logout]`.
+- Riusa `useTheme()` esistente (persistenza localStorage già coperta da iter 19) e `useAuth().logout()` per il logout.
+- Superfici già theme-aware da iter 20-21 (`bg-white dark:bg-zinc-900`, `border-zinc-200 dark:border-zinc-800`, ecc.), verificato in LIGHT: sfondo chiaro, cards bianche, testo leggibile.
+- Verificato a 375px in light+dark: hamburger visibile, drawer si apre col backdrop, logout riporta a `/login`, toggle tema persiste al reload (`LS.theme=dark → dark=True`).

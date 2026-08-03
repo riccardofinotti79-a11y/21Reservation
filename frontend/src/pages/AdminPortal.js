@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, NavLink, Outlet, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { Building2, Plus, ArrowLeft, LogOut, Trash2, Copy } from "lucide-react";
+import { Building2, Plus, ArrowLeft, LogOut, Trash2, Copy, Menu, X, Moon, Sun } from "lucide-react";
 import api from "../api";
 import { useAuth } from "../auth";
 import { useTheme } from "../theme";
@@ -23,34 +23,75 @@ export function RequireAgencyAdmin({ children }) {
 export function AdminLayout() {
   const { user, logout } = useAuth();
   const { dark, toggle } = useTheme();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const closeMobile = () => setSidebarOpen(false);
+
   return (
-    <div className="min-h-screen w-full flex bg-[#F8F9FA] dark:bg-zinc-950 font-sans-ui text-zinc-900 dark:text-zinc-100">
-      <aside className="hidden lg:flex fixed lg:relative inset-y-0 left-0 z-30 w-64 shrink-0 border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex-col">
-        <div className="p-5 border-b border-zinc-200 dark:border-zinc-800">
-          <div className="label-eyebrow">21Reservation</div>
-          <div className="font-serif-display text-2xl mt-1 text-zinc-900 dark:text-zinc-100">Portale Agenzia</div>
-          <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 font-mono">{user?.email}</div>
+    <div className="min-h-screen w-full flex bg-[#F8F9FA] dark:bg-zinc-950 font-sans-ui text-zinc-900 dark:text-zinc-100 transition-colors">
+      {/* Mobile top bar */}
+      <div className="lg:hidden fixed top-0 inset-x-0 z-40 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-4 h-14">
+        <button data-testid="admin-mobile-menu-toggle" onClick={() => setSidebarOpen(true)}
+                className="p-2 -ml-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md">
+          <Menu size={18} />
+        </button>
+        <div className="font-serif-display text-lg truncate text-zinc-900 dark:text-zinc-100">Portale Agenzia</div>
+        <button data-testid="admin-theme-toggle-mobile" onClick={toggle}
+                className="p-2 -mr-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md text-zinc-600 dark:text-zinc-300"
+                title={dark ? "Tema chiaro" : "Tema scuro"}>
+          {dark ? <Sun size={18} /> : <Moon size={18} />}
+        </button>
+      </div>
+
+      {sidebarOpen && (
+        <div data-testid="admin-sidebar-backdrop" className="lg:hidden fixed inset-0 bg-black/40 z-40" onClick={closeMobile} />
+      )}
+
+      <aside
+        data-testid="admin-sidebar"
+        className={`${sidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0
+                    fixed lg:relative inset-y-0 left-0 z-50 lg:z-0
+                    w-64 shrink-0 border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex flex-col
+                    transition-transform duration-200 ease-out`}
+      >
+        <div className="p-5 border-b border-zinc-200 dark:border-zinc-800 flex items-start justify-between">
+          <div className="min-w-0">
+            <div className="label-eyebrow">21Reservation</div>
+            <div className="font-serif-display text-2xl mt-1 text-zinc-900 dark:text-zinc-100">Portale Agenzia</div>
+            <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 font-mono truncate" title={user?.email}>{user?.email}</div>
+          </div>
+          <button data-testid="admin-sidebar-close" onClick={closeMobile} className="lg:hidden p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md">
+            <X size={16} />
+          </button>
         </div>
-        <nav className="flex-1 p-3 space-y-1">
-          <NavLink to="/admin" end data-testid="admin-nav-clients"
-                   className={({ isActive }) => `flex items-center gap-3 px-3 py-2 rounded-md text-sm ${isActive ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900" : "text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"}`}>
-            <Building2 size={16} /> Clienti
+
+        <nav className="flex-1 overflow-y-auto p-3 space-y-1">
+          <NavLink to="/admin" end data-testid="admin-nav-clients" onClick={closeMobile}
+                   className={({ isActive }) => `flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${isActive ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900" : "text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800"}`}>
+            <Building2 size={16} /> Panoramica
           </NavLink>
-          <NavLink to="/admin/new" data-testid="admin-nav-new"
-                   className={({ isActive }) => `flex items-center gap-3 px-3 py-2 rounded-md text-sm ${isActive ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900" : "text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"}`}>
+          <NavLink to="/admin/new" data-testid="admin-nav-new" onClick={closeMobile}
+                   className={({ isActive }) => `flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${isActive ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900" : "text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800"}`}>
             <Plus size={16} /> Nuovo cliente
           </NavLink>
         </nav>
+
         <div className="p-3 border-t border-zinc-200 dark:border-zinc-800 space-y-1">
-          <button data-testid="admin-theme-toggle" onClick={toggle} className="w-full text-left flex items-center gap-2 px-3 py-2 text-sm text-zinc-600 dark:text-zinc-300 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800">
-            {dark ? "Tema chiaro" : "Tema scuro"}
+          <div className="text-xs text-zinc-500 dark:text-zinc-400 px-2 pb-1 truncate" title={user?.email}>
+            <span className="font-medium text-zinc-700 dark:text-zinc-200">{user?.name || "Agency"}</span>
+            <div className="font-mono text-[10px] truncate">{user?.email}</div>
+          </div>
+          <button data-testid="admin-theme-toggle" onClick={toggle}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors">
+            {dark ? <Sun size={16} /> : <Moon size={16} />} {dark ? "Tema chiaro" : "Tema scuro"}
           </button>
-          <button data-testid="admin-logout" onClick={logout} className="w-full text-left flex items-center gap-2 px-3 py-2 text-sm text-zinc-600 dark:text-zinc-300 rounded-md hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950 dark:hover:text-red-400">
+          <button data-testid="admin-logout" onClick={logout}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-zinc-600 dark:text-zinc-300 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950 dark:hover:text-red-400 rounded-md transition-colors">
             <LogOut size={16} /> Esci
           </button>
         </div>
       </aside>
-      <main className="flex-1 overflow-y-auto"><Outlet /></main>
+
+      <main className="flex-1 overflow-y-auto pt-14 lg:pt-0"><Outlet /></main>
     </div>
   );
 }
