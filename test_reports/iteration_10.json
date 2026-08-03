@@ -1,0 +1,40 @@
+{
+  "summary": "Fase 1 Portale Agenzia — testing completo backend+frontend. 21/21 test pytest passati e tutti gli scenari UI Playwright verificati (login-role redirect, guard /admin, lista clienti, provisioning con schermata conferma password, dettaglio cliente + gestione utenti + toggle status, isolamento tenant, blocco owner su ristorante sospeso, staff/owner correttamente 403 su /api/admin/*, no /admin nella sidebar owner). Nessun bug bloccante trovato.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "AdminClientNew (form nuovo cliente)", "issues": ["Console error: 'Pattern attribute value [a-z0-9-]+ is not a valid regular expression' — l'attributo HTML pattern del campo subdomain non è valido in modalità Unicode-v. Non blocca il submit ma inquina la console. Suggerimento: rimuovere il flag /v implicito usando un pattern compatibile o omettere l'attributo pattern e validare in JS."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration10_agency.py",
+    "/app/test_reports/pytest/iteration10.xml"
+  ],
+  "action_items": [
+    "(nice-to-have) Correggere il pattern regex sull'input subdomain in AdminClientNew per eliminare l'errore console."
+  ],
+  "critical_code_review_comments": [
+    "Seed idempotente agency_admin: verificato via login ripetuti e permanenza dell'account con role=agency_admin e restaurant_id=null.",
+    "Login flow: agency_admin restituisce restaurant=null; owner/staff mantengono restaurant popolato; suspended → 403 con messaggio 'sospeso' — comportamento corretto.",
+    "Autorizzazione /api/admin/*: senza token → 401/403, owner → 403, staff → 403, agency_admin → 200. Coperto su tutti e 6 gli endpoint.",
+    "Provisioning: subdomain duplicato → 400, email duplicata → 400, nuovo owner effettua login e vede SOLO il proprio ristorante; bookings e customers vuoti (isolamento tenant OK).",
+    "Detail: GET /admin/restaurants/{id} restituisce {restaurant, users} con owner+staff seed; POST/DELETE user funzionano; DELETE agency_admin → 400.",
+    "Frontend RequireAgencyAdmin guard: da owner mostra 'Accesso negato — Questa sezione è riservata all'agenzia'; da anonimo → /login. La sidebar owner NON contiene link /admin.",
+    "AdminClientNew: submit ritorna la schermata di conferma con [data-testid=admin-created-password] visibile con la password inserita."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration10_agency.py (nuovo)"
+  ],
+  "success_rate": {"backend": "100% (21/21)", "frontend": "100% (11/11 scenari agency portal)"},
+  "test_credentials": "admin@21agency.com/agency123, owner@demo.com/demo1234, staff@demo.com/demo1234 — tutti funzionanti",
+  "seed_data_creation": "Creati e poi ripuliti: 2 ristoranti test (subdomain villa-rosa e villa-rosa-fe-<ts>) — sospesi e utenti proprietari (rosa+ph1@example.com, rosa+fe<ts>@example.com) rimossi via DELETE /api/admin/users/{uid}. Nessun endpoint di delete restaurant esiste (come da nota) → ristoranti lasciati in status=suspended. Demo ripristinato a status=active.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Portale Agenzia (Fase 1) è funzionante end-to-end. Testids implementati: admin-client-row-{subdomain}, admin-btn-new, admin-new-restaurant-name/subdomain/owner-name/owner-email/owner-password/submit, admin-created-password, admin-add-user, admin-delete-user-{email}, admin-toggle-status. Guard RequireAgencyAdmin renderizza il messaggio 'Accesso negato' per non-agency_admin autenticati. Warning Recharts width/height=-1 già noto dall'iter 9. Piccolo issue cosmetico: pattern regex invalido sul campo subdomain (nessun impatto funzionale).",
+  "rca of the issue": "N/A — nessun bug funzionale riscontrato in Fase 1."
+}

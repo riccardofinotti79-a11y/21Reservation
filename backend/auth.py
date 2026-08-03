@@ -26,11 +26,11 @@ def verify_password(password: str, password_hash: str) -> bool:
         return False
 
 
-def create_access_token(user_id: str, restaurant_id: str, role: str) -> str:
+def create_access_token(user_id: str, restaurant_id: Optional[str], role: str) -> str:
     exp = datetime.now(timezone.utc) + timedelta(minutes=JWT_EXPIRE_MIN)
     payload = {
         "sub": user_id,
-        "rid": restaurant_id,
+        "rid": restaurant_id or "",
         "role": role,
         "exp": exp,
     }
@@ -54,7 +54,7 @@ async def get_current_user(
     payload = decode_token(creds.credentials)
     return {
         "user_id": payload["sub"],
-        "restaurant_id": payload["rid"],
+        "restaurant_id": payload["rid"] or None,
         "role": payload.get("role", "staff"),
     }
 
@@ -62,4 +62,10 @@ async def get_current_user(
 async def require_owner(user: dict = Depends(get_current_user)) -> dict:
     if user["role"] != "owner":
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Owner role required")
+    return user
+
+
+async def require_agency_admin(user: dict = Depends(get_current_user)) -> dict:
+    if user["role"] != "agency_admin":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Agency admin required")
     return user

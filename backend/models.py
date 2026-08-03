@@ -20,7 +20,7 @@ BookingStatus = Literal[
     "pending", "accepted", "seated", "declined", "no_show", "cancelled"
 ]
 BookingSource = Literal["phone", "online", "walkin"]
-UserRole = Literal["owner", "staff"]
+UserRole = Literal["owner", "staff", "agency_admin"]
 TableShape = Literal["square", "round", "rect"]
 
 
@@ -30,6 +30,7 @@ class Restaurant(BaseModel):
     id: str = Field(default_factory=new_id)
     name: str
     subdomain: str  # used in /book/{subdomain}
+    status: Literal["active", "suspended"] = "active"
     address: Optional[str] = None
     phone: Optional[str] = None
     email: Optional[EmailStr] = None
@@ -91,7 +92,7 @@ class RestaurantUpdate(BaseModel):
 class User(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=new_id)
-    restaurant_id: str
+    restaurant_id: Optional[str] = None  # None for agency_admin
     name: str
     email: EmailStr
     password_hash: str
@@ -101,7 +102,7 @@ class User(BaseModel):
 
 class UserPublic(BaseModel):
     id: str
-    restaurant_id: str
+    restaurant_id: Optional[str] = None
     name: str
     email: EmailStr
     role: UserRole
@@ -115,7 +116,39 @@ class LoginRequest(BaseModel):
 class LoginResponse(BaseModel):
     access_token: str
     user: UserPublic
-    restaurant: Restaurant
+    restaurant: Optional[Restaurant] = None
+
+
+# -------------------- Admin (Agency portal) --------------------
+class AdminRestaurantCreate(BaseModel):
+    restaurant_name: str
+    subdomain: str
+    owner_name: str
+    owner_email: EmailStr
+    owner_password: str
+    language: str = "it"
+
+
+class AdminRestaurantUpdate(BaseModel):
+    name: Optional[str] = None
+    subdomain: Optional[str] = None
+    status: Optional[Literal["active", "suspended"]] = None
+
+
+class AdminUserCreate(BaseModel):
+    name: str
+    email: EmailStr
+    password: str
+    role: Literal["owner", "staff"] = "staff"
+
+
+class AdminRestaurantSummary(BaseModel):
+    id: str
+    name: str
+    subdomain: str
+    status: str = "active"
+    user_count: int = 0
+    created_at: Optional[datetime] = None
 
 
 # -------------------- Areas / Tables --------------------

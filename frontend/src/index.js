@@ -28,6 +28,7 @@ import Waitlist from "./pages/Waitlist";
 import PublicBooking from "./pages/PublicBooking";
 import PublicCancel from "./pages/PublicCancel";
 import PaymentResult from "./pages/PaymentResult";
+import { AdminLayout, AdminClients, AdminClientNew, AdminClientDetail, RequireAgencyAdmin } from "./pages/AdminPortal";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 60_000, refetchOnWindowFocus: false } },
@@ -36,7 +37,15 @@ const queryClient = new QueryClient({
 function RequireAuth({ children }) {
   const { user } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
+  // Agency admin should live only under /admin; if they land on staff routes, kick them there.
+  if (user.role === "agency_admin") return <Navigate to="/admin" replace />;
   return children;
+}
+
+function RequireAgencyAdminRoute({ children }) {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+  return <RequireAgencyAdmin>{children}</RequireAgencyAdmin>;
 }
 
 function AppRoutes() {
@@ -47,6 +56,13 @@ function AppRoutes() {
       <Route path="/payment/success" element={<PaymentResult mode="success" />} />
       <Route path="/payment/cancel" element={<PaymentResult mode="cancel" />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/admin" element={
+        <RequireAgencyAdminRoute><AdminLayout /></RequireAgencyAdminRoute>
+      }>
+        <Route index element={<AdminClients />} />
+        <Route path="new" element={<AdminClientNew />} />
+        <Route path=":id" element={<AdminClientDetail />} />
+      </Route>
       <Route path="/" element={<RequireAuth><Dashboard /></RequireAuth>}>
         <Route index element={<Home />} />
         <Route path="bookings/list" element={<BookingsList />} />

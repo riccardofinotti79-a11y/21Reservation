@@ -16,6 +16,7 @@ ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
 
 from models import (  # noqa: E402
+    AdminRestaurantCreate, AdminRestaurantUpdate, AdminRestaurantSummary, AdminUserCreate,
     Area, AreaCreate, Booking, BookingCreatePublic, BookingCreateStaff,
     BookingStatusUpdate, BookingUpdate, Customer, CustomerCreate, CustomerUpdate,
     DayAvailability, LoginRequest, LoginResponse, OpeningHour, OpeningHourCreate,
@@ -24,7 +25,7 @@ from models import (  # noqa: E402
     WaitlistEntry, WaitlistCreate, new_id, utc_now,
 )
 from auth import (  # noqa: E402
-    create_access_token, get_current_user, hash_password, verify_password,
+    create_access_token, get_current_user, hash_password, require_agency_admin, verify_password,
 )
 from availability import (  # noqa: E402
     auto_assign_table, duration_for_persons, find_available_tables,
@@ -100,12 +101,19 @@ async def login(body: LoginRequest):
     user = await db.users.find_one({"email": body.email.lower()}, NO_ID)
     if not user or not verify_password(body.password, user["password_hash"]):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Credenziali non valide")
-    r = await _get_restaurant(user["restaurant_id"])
-    token = create_access_token(user["id"], user["restaurant_id"], user["role"])
+    role = user.get("role", "staff")
+    restaurant_obj = None
+    if role != "agency_admin":
+        # Regular users: enforce restaurant status = active
+        r = await _get_restaurant(user["restaurant_id"])
+        if r.get("status", "active") == "suspended":
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "Account sospeso — contatta l'agenzia")
+        restaurant_obj = Restaurant(**r)
+    token = create_access_token(user["id"], user.get("restaurant_id"), role)
     return LoginResponse(
         access_token=token,
-        user=UserPublic(**{k: user[k] for k in ("id", "restaurant_id", "name", "email", "role")}),
-        restaurant=Restaurant(**r),
+        user=UserPublic(**{k: user.get(k) for k in ("id", "restaurant_id", "name", "email", "role")}),
+        restaurant=restaurant_obj,
     )
 
 
@@ -114,7 +122,115 @@ async def me(cur=Depends(get_current_user)):
     user = await db.users.find_one({"id": cur["user_id"]}, NO_ID)
     if not user:
         raise HTTPException(404, "User not found")
-    return UserPublic(**{k: user[k] for k in ("id", "restaurant_id", "name", "email", "role")})
+    return UserPublic(**{k: user.get(k) for k in ("id", "restaurant_id", "name", "email", "role")})
+
+
+# ==================== ADMIN (Agency portal) ====================
+@api.get("/admin/restaurants", response_model=List[AdminRestaurantSummary])
+async def admin_list_restaurants(_=Depends(require_agency_admin)):
+    restaurants = await db.restaurants.find({}, NO_ID).to_list(2000)
+    # Count users per restaurant
+    counts_pipe = await db.users.aggregate([
+        {"$match": {"restaurant_id": {"$ne": None}}},
+        {"$group": {"_id": "$restaurant_id", "n": {"$sum": 1}}},
+    ]).to_list(2000)
+    counts = {c["_id"]: c["n"] for c in counts_pipe}
+    out = []
+    for r in restaurants:
+        out.append(AdminRestaurantSummary(
+            id=r["id"], name=r["name"], subdomain=r["subdomain"],
+            status=r.get("status", "active"),
+            user_count=counts.get(r["id"], 0),
+            created_at=r.get("created_at") if isinstance(r.get("created_at"), datetime) else None,
+        ))
+    return out
+
+
+@api.post("/admin/restaurants")
+async def admin_create_restaurant(body: AdminRestaurantCreate, _=Depends(require_agency_admin)):
+    sub = body.subdomain.strip().lower()
+    if not sub or " " in sub:
+        raise HTTPException(400, "Subdomain non valido")
+    exists = await db.restaurants.find_one({"subdomain": sub})
+    if exists:
+        raise HTTPException(400, "Subdomain già in uso")
+    email = body.owner_email.lower()
+    if await db.users.find_one({"email": email}):
+        raise HTTPException(400, "Email owner già registrata")
+    r = Restaurant(name=body.restaurant_name, subdomain=sub, language=body.language)
+    r_doc = r.model_dump()
+    r_doc["created_at"] = r_doc["created_at"].isoformat()
+    await db.restaurants.insert_one(r_doc)
+    owner = User(
+        restaurant_id=r.id, name=body.owner_name, email=email,
+        password_hash=hash_password(body.owner_password), role="owner",
+    )
+    u_doc = owner.model_dump()
+    u_doc["created_at"] = u_doc["created_at"].isoformat()
+    await db.users.insert_one(u_doc)
+    return {
+        "restaurant": Restaurant(**r_doc).model_dump(mode="json"),
+        "owner": UserPublic(**{k: u_doc[k] for k in ("id", "restaurant_id", "name", "email", "role")}).model_dump(),
+        "credentials": {"email": email, "password": body.owner_password},
+    }
+
+
+@api.get("/admin/restaurants/{rid}")
+async def admin_get_restaurant(rid: str, _=Depends(require_agency_admin)):
+    r = await db.restaurants.find_one({"id": rid}, NO_ID)
+    if not r:
+        raise HTTPException(404, "Restaurant not found")
+    users = await db.users.find({"restaurant_id": rid}, NO_ID).to_list(500)
+    return {
+        "restaurant": Restaurant(**r).model_dump(mode="json"),
+        "users": [UserPublic(**{k: u.get(k) for k in ("id", "restaurant_id", "name", "email", "role")}).model_dump() for u in users],
+    }
+
+
+@api.patch("/admin/restaurants/{rid}", response_model=Restaurant)
+async def admin_update_restaurant(rid: str, body: AdminRestaurantUpdate, _=Depends(require_agency_admin)):
+    r = await db.restaurants.find_one({"id": rid}, NO_ID)
+    if not r:
+        raise HTTPException(404, "Restaurant not found")
+    patch = {k: v for k, v in body.model_dump(exclude_unset=True).items() if v is not None}
+    if "subdomain" in patch:
+        patch["subdomain"] = patch["subdomain"].strip().lower()
+        clash = await db.restaurants.find_one({"subdomain": patch["subdomain"], "id": {"$ne": rid}})
+        if clash:
+            raise HTTPException(400, "Subdomain già in uso")
+    if patch:
+        await db.restaurants.update_one({"id": rid}, {"$set": patch})
+    updated = await db.restaurants.find_one({"id": rid}, NO_ID)
+    return Restaurant(**updated)
+
+
+@api.post("/admin/restaurants/{rid}/users", response_model=UserPublic)
+async def admin_add_user(rid: str, body: AdminUserCreate, _=Depends(require_agency_admin)):
+    r = await db.restaurants.find_one({"id": rid}, NO_ID)
+    if not r:
+        raise HTTPException(404, "Restaurant not found")
+    email = body.email.lower()
+    if await db.users.find_one({"email": email}):
+        raise HTTPException(400, "Email già registrata")
+    u = User(restaurant_id=rid, name=body.name, email=email,
+             password_hash=hash_password(body.password), role=body.role)
+    doc = u.model_dump()
+    doc["created_at"] = doc["created_at"].isoformat()
+    await db.users.insert_one(doc)
+    return UserPublic(**{k: doc[k] for k in ("id", "restaurant_id", "name", "email", "role")})
+
+
+@api.delete("/admin/users/{uid}")
+async def admin_delete_user(uid: str, cur=Depends(require_agency_admin)):
+    if uid == cur["user_id"]:
+        raise HTTPException(400, "Non puoi eliminare te stesso")
+    u = await db.users.find_one({"id": uid}, NO_ID)
+    if not u:
+        raise HTTPException(404, "User not found")
+    if u.get("role") == "agency_admin":
+        raise HTTPException(400, "Non puoi eliminare un agency_admin")
+    await db.users.delete_one({"id": uid})
+    return {"deleted": True}
 
 
 # ==================== SEED ====================
@@ -1240,11 +1356,44 @@ async def on_startup():
         await seed_demo(db)
     except Exception as e:
         logger.warning(f"Auto-seed skipped: {e}")
+    # Seed agency admin from env (idempotent)
+    try:
+        await _seed_agency_admin(db)
+    except Exception as e:
+        logger.warning(f"Agency admin seed skipped: {e}")
     # One-off idempotent repair
     try:
         await _repair_data(db)
     except Exception as e:
         logger.warning(f"Repair pass skipped: {e}")
+
+
+async def _seed_agency_admin(db):
+    """Idempotently ensure a single agency_admin account exists (from env vars).
+
+    AGENCY_ADMIN_EMAIL / AGENCY_ADMIN_PASSWORD; falls back to demo values if unset.
+    """
+    email = (os.environ.get("AGENCY_ADMIN_EMAIL") or "admin@21agency.com").lower()
+    password = os.environ.get("AGENCY_ADMIN_PASSWORD") or "agency123"
+    existing = await db.users.find_one({"email": email})
+    if existing:
+        # Ensure role/restaurant fields are correct even if the doc pre-existed with wrong shape
+        update = {}
+        if existing.get("role") != "agency_admin":
+            update["role"] = "agency_admin"
+        if existing.get("restaurant_id") is not None:
+            update["restaurant_id"] = None
+        if update:
+            await db.users.update_one({"id": existing["id"]}, {"$set": update})
+        return
+    u = User(
+        restaurant_id=None, name="Agency Admin", email=email,
+        password_hash=hash_password(password), role="agency_admin",
+    )
+    doc = u.model_dump()
+    doc["created_at"] = doc["created_at"].isoformat()
+    await db.users.insert_one(doc)
+    logger.info(f"Seeded agency_admin: {email}")
 
 
 async def _repair_data(db):

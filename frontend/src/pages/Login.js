@@ -17,8 +17,9 @@ export default function Login() {
     e.preventDefault();
     setBusy(true);
     try {
-      await login(email, password);
-      nav("/");
+      const data = await login(email, password);
+      if (data?.user?.role === "agency_admin") nav("/admin");
+      else nav("/");
     } catch (err) {
       toast.error(t("login.error"));
     } finally {
