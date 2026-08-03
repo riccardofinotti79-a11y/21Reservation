@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, NavLink, Outlet, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { Building2, Users, Plus, ArrowLeft, LogOut, Trash2, Copy } from "lucide-react";
+import { Building2, Plus, ArrowLeft, LogOut, Trash2, Copy } from "lucide-react";
 import api from "../api";
 import { useAuth } from "../auth";
 import { useTheme } from "../theme";

@@ -275,3 +275,13 @@ Stack: FastAPI + MongoDB + React/Tailwind + JWT auth + 5s polling + Resend email
 ### Verifica (report `/app/test_reports/iteration_10.json`)
 - Backend 21/21 pytest, frontend 11/11 scenari UI Playwright: seed idempotente, login agency_admin, login owner/staff invariato, `status=suspended` blocca login owner con 403, tutti gli endpoint `/api/admin/*` → 401 senza token, 403 per owner/staff, 200 per agency_admin, provisioning cliente con isolamento tenant verificato (nuovo owner vede solo il proprio ristorante, `/api/bookings` e `/api/customers` vuoti). Sidebar staff owner senza link `/admin`.
 - Fix cosmetico applicato: rimosso `pattern="[a-z0-9-]+"` invalido dal campo subdomain (già validato in JS via `onChange`).
+
+## Iteration 21 (2026-02-16) — Metriche Agenzia
+- **Backend**: nuovo `GET /api/admin/metrics` protetto da `require_agency_admin`. Response: `{totals:{restaurants_total, restaurants_active, restaurants_suspended, bookings_total, bookings_30d}, per_restaurant:[{id,name,subdomain,status,bookings_total,bookings_7d,bookings_30d,guests_total,customers_count}]}`. Aggrega via `count_documents` sui campi bookings/customers per `restaurant_id` + `$sum` su `persons` per gli ospiti totali.
+- **Frontend**: `AdminClients` diventa la **Panoramica** di `/admin`. 4 KPI card `metric-restaurants-total/-active/-bookings-total/-bookings-30d`, ricerca cliente, select `admin-sort` (bookings_30d default / bookings_total / name), lista clienti con `MiniStat` (Totali/30gg/7gg/Ospiti/CRM) + badge stato. Coerente con mobile card layout e dark mode già in place. Rimossa dipendenza inutilizzata `Users` icon.
+- **Verifica**: curl smoke → agency_admin 200 (demo con 7 bookings, 32 ospiti, 4 CRM), owner 403, no-token 401. Testing agent in corso su `/app/test_reports/iteration_11.json`.
+
+### Iter 21 — Verifica testing agent (`/app/test_reports/iteration_11.json`)
+- Backend 7/7 pytest: shape response corretta, 401/403/200 su agency_admin vs owner/staff, provisioning nuovo ristorante con bookings=0 poi 2 prenotazioni → metriche riflettono 2/5, isolamento demo invariato, coerenza aggregata (`sum(per_r.bookings_total) == totals.bookings_total`).
+- Frontend: 4 MetricCard visibili (5/3/9/9 nell'ambiente di test), 5 righe cliente con MiniStat + badge Attivo/Sospeso, `admin-sort` by name funziona, owner su `/admin` → 'Accesso negato', mobile 375 dark senza overflow.
+- Note per il futuro: metriche implementate come N+1 (accettabile Fase 1 con pochi clienti); su scala convertire in singola aggregate pipeline con `$facet`.
