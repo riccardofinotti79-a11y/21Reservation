@@ -259,3 +259,19 @@ Stack: FastAPI + MongoDB + React/Tailwind + JWT auth + 5s polling + Resend email
 - `theme.js` riscritto: chiave unica `localStorage['theme']` = 'light'|'dark' come sorgente di verità (con migrazione dalla legacy `21r_dark`), `useLayoutEffect` per applicare la classe `.dark` PRIMA del paint, listener `storage` per multi-tab.
 - `public/index.html`: inline `<script>` prima del bundle React che legge `localStorage.theme` (o migra da `21r_dark`) e applica la classe su `<html>` PRE-PAINT — elimina il FOUC e il "flash" al reload/navigate.
 - Verifica testing agent (report `/app/test_reports/iteration_9.json`, 7/7 PASS): default light + toggle dark preservato su Lista/Tavoli/Planimetria/Calendario/Home; reverse dark→light idem; reload persiste; pre-paint dark applicato prima del mount React; migrazione legacy funziona; StorageEvent multi-tab funziona; bottone `theme-toggle` alterna correttamente il testo.
+
+## Iteration 20 (2026-02-16) — Fase 1 Portale Agenzia
+### Backend
+- `models.py`: `UserRole` esteso a `owner|staff|agency_admin`; `User.restaurant_id` e `UserPublic.restaurant_id` ora Optional; `LoginResponse.restaurant` Optional; nuovo campo `Restaurant.status: "active"|"suspended"` con default active; nuovi modelli `AdminRestaurantCreate/Update`, `AdminUserCreate`, `AdminRestaurantSummary`.
+- `auth.py`: `create_access_token` accetta `restaurant_id: Optional[str]` (serializzato come `""` in JWT); `get_current_user` riesporta `restaurant_id=None` se vuoto; nuova dependency `require_agency_admin`.
+- `server.py`: login gestisce agency_admin (skip fetch ristorante, restaurant=None nella risposta) e blocca login owner/staff se `restaurant.status=="suspended"`; nuovo blocco endpoint `/api/admin/*` (tutti dietro `require_agency_admin`): GET/POST /admin/restaurants, GET/PATCH /admin/restaurants/{id}, POST /admin/restaurants/{id}/users, DELETE /admin/users/{uid}; startup ora chiama `_seed_agency_admin(db)` idempotente da env `AGENCY_ADMIN_EMAIL/PASSWORD` (default `admin@21agency.com / agency123`).
+- `.env`: aggiunte `AGENCY_ADMIN_EMAIL` e `AGENCY_ADMIN_PASSWORD` (idempotency-safe).
+
+### Frontend
+- Nuovo `pages/AdminPortal.js`: `AdminLayout` (sidebar dedicata con logout + theme toggle riusato), `AdminClients` (lista con ricerca), `AdminClientNew` (form crea Restaurant+owner con schermata di conferma password `admin-created-password`), `AdminClientDetail` (dati ristorante + lista utenti + add/delete + toggle status), `RequireAgencyAdmin` guard.
+- `index.js`: nuovo `RequireAgencyAdminRoute` wrapper e route `/admin` con `AdminLayout` come outlet; `RequireAuth` ora reindirizza `agency_admin` a `/admin` se prova ad aprire route staff.
+- `Login.js`: post-login redirect basato su `user.role` (`agency_admin` → `/admin`, altrimenti `/`).
+
+### Verifica (report `/app/test_reports/iteration_10.json`)
+- Backend 21/21 pytest, frontend 11/11 scenari UI Playwright: seed idempotente, login agency_admin, login owner/staff invariato, `status=suspended` blocca login owner con 403, tutti gli endpoint `/api/admin/*` → 401 senza token, 403 per owner/staff, 200 per agency_admin, provisioning cliente con isolamento tenant verificato (nuovo owner vede solo il proprio ristorante, `/api/bookings` e `/api/customers` vuoti). Sidebar staff owner senza link `/admin`.
+- Fix cosmetico applicato: rimosso `pattern="[a-z0-9-]+"` invalido dal campo subdomain (già validato in JS via `onChange`).

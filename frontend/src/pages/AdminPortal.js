@@ -179,7 +179,7 @@ export function AdminClientNew() {
         </div>
         <div>
           <label className="label-eyebrow block mb-1">Subdomain</label>
-          <input data-testid="admin-new-subdomain" value={form.subdomain} onChange={(e) => set("subdomain", e.target.value.toLowerCase().replace(/\s+/g, ""))} required pattern="[a-z0-9-]+" className={cls} placeholder="es. villa-rosa" />
+          <input data-testid="admin-new-subdomain" value={form.subdomain} onChange={(e) => set("subdomain", e.target.value.toLowerCase().replace(/\s+/g, ""))} required className={cls} placeholder="es. villa-rosa" />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
