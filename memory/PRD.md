@@ -294,3 +294,12 @@ Stack: FastAPI + MongoDB + React/Tailwind + JWT auth + 5s polling + Resend email
 - Riusa `useTheme()` esistente (persistenza localStorage già coperta da iter 19) e `useAuth().logout()` per il logout.
 - Superfici già theme-aware da iter 20-21 (`bg-white dark:bg-zinc-900`, `border-zinc-200 dark:border-zinc-800`, ecc.), verificato in LIGHT: sfondo chiaro, cards bianche, testo leggibile.
 - Verificato a 375px in light+dark: hamburger visibile, drawer si apre col backdrop, logout riporta a `/login`, toggle tema persiste al reload (`LS.theme=dark → dark=True`).
+
+## Iteration 23 (2026-02-16) — Login theme-aware
+- `pages/Login.js`: sostituzioni mirate senza toccare la logica.
+  * Outer wrapper `bg-[#F8F9FA] dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100`.
+  * Titolo h1 + subtitle: `text-zinc-900 dark:text-zinc-100` / `text-zinc-500 dark:text-zinc-400`.
+  * Input email + password: `border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 focus:border-zinc-900 dark:focus:border-zinc-100`.
+  * Bottone Submit invertito in dark (`dark:bg-zinc-100 dark:text-zinc-900`).
+  * Hint demo + link "/book/demo" con varianti dark.
+- Verifica 375px: LIGHT input bg rgb(255,255,255) color rgb(24,24,27); DARK input bg rgb(24,24,27) color rgb(244,244,245), page bg rgb(9,9,11); login funzionale in entrambi.

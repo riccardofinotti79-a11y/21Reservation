@@ -28,7 +28,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#F8F9FA] grid lg:grid-cols-2">
+    <div className="min-h-screen w-full bg-[#F8F9FA] dark:bg-zinc-950 grid lg:grid-cols-2 text-zinc-900 dark:text-zinc-100">
       {/* Left panel */}
       <div className="hidden lg:flex relative overflow-hidden">
         <img
@@ -55,8 +55,8 @@ export default function Login() {
             <div className="label-eyebrow">{t("app.name")}</div>
             <LanguageToggle />
           </div>
-          <h1 className="font-serif-display text-5xl mb-2">{t("login.title")}</h1>
-          <p className="text-zinc-500 mb-10">{t("login.subtitle")}</p>
+          <h1 className="font-serif-display text-5xl mb-2 text-zinc-900 dark:text-zinc-100">{t("login.title")}</h1>
+          <p className="text-zinc-500 dark:text-zinc-400 mb-10">{t("login.subtitle")}</p>
           <form onSubmit={submit} className="space-y-5">
             <div>
               <label className="label-eyebrow mb-2 block">{t("login.email")}</label>
@@ -65,7 +65,7 @@ export default function Login() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full border border-zinc-200 bg-white px-4 py-3 rounded-md focus:border-zinc-900 transition-colors"
+                className="w-full border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 px-4 py-3 rounded-md focus:border-zinc-900 dark:focus:border-zinc-100 transition-colors"
                 required
               />
             </div>
@@ -76,7 +76,7 @@ export default function Login() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full border border-zinc-200 bg-white px-4 py-3 rounded-md focus:border-zinc-900 transition-colors"
+                className="w-full border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 px-4 py-3 rounded-md focus:border-zinc-900 dark:focus:border-zinc-100 transition-colors"
                 required
               />
             </div>
@@ -84,14 +84,14 @@ export default function Login() {
               data-testid="login-submit"
               type="submit"
               disabled={busy}
-              className="w-full py-3 rounded-md bg-zinc-900 hover:bg-zinc-700 text-white font-semibold tracking-wide transition-colors disabled:opacity-50"
+              className="w-full py-3 rounded-md bg-zinc-900 hover:bg-zinc-700 dark:bg-zinc-100 dark:hover:bg-white text-white dark:text-zinc-900 font-semibold tracking-wide transition-colors disabled:opacity-50"
             >
               {busy ? "…" : t("login.submit")}
             </button>
           </form>
-          <p className="mt-8 text-xs text-zinc-400 font-mono">{t("login.demo_hint")}</p>
-          <p className="mt-3 text-xs text-zinc-500">
-            Pagina pubblica demo: <a className="underline hover:text-zinc-900" href="/book/demo" data-testid="link-public-demo">/book/demo</a>
+          <p className="mt-8 text-xs text-zinc-400 dark:text-zinc-500 font-mono">{t("login.demo_hint")}</p>
+          <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
+            Pagina pubblica demo: <a className="underline hover:text-zinc-900 dark:hover:text-zinc-100" href="/book/demo" data-testid="link-public-demo">/book/demo</a>
           </p>
         </div>
       </div>
