@@ -1,0 +1,30 @@
+{
+  "summary": "BLOCKER: le modifiche descritte nella review non risultano applicate al codice. /app/frontend/public/widget.js e' identico alla versione precedente (nessuna guardia __R21_WIDGET_LOADED__, nessun MutationObserver, scan() senza parametro root, R21Widget.rescan mappato al vecchio scan). Il file /app/frontend/public/widget-test.html NON esiste (l'URL /widget-test.html risponde 200 ma serve l'index.html della SPA React, non la pagina di test descritta). Nessun test funzionale eseguibile finche' il main agent non committa effettivamente il fix e la pagina test.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "widget.js", "issue": "File on-disk e servito non contiene __R21_WIDGET_LOADED__ ne' MutationObserver. Content-length 6708 = versione vecchia. scan() non accetta root scope; nessun auto-mount per nodi aggiunti dopo il primo scan.", "selector": "/widget.js", "priority": "CRITICAL"},
+      {"component": "widget-test.html", "issue": "File assente in /app/frontend/public/. GET https://resto-book-100.preview.emergentagent.com/widget-test.html restituisce 200 ma con il fallback SPA (index.html di React), non l'HTML di test descritto (nessun #static-inline, floating-wrap, host-add-dynamic).", "selector": "/widget-test.html", "priority": "CRITICAL"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Applicare realmente il fix a /app/frontend/public/widget.js: aggiungere in cima la guardia `if (window.__R21_WIDGET_LOADED__) return; window.__R21_WIDGET_LOADED__ = true;`, refattorizzare scan() come scan(root) usando (root||document).querySelectorAll e (se root ha data-21r-widget) trattarlo come match root; introdurre mountOne(el) per DRY; instanziare un MutationObserver su document.body {childList:true, subtree:true} che per ogni addedNode Element chiama scan(node); R21Widget.rescan deve invocare scan() senza argomenti.",
+    "Creare /app/frontend/public/widget-test.html con: card statica inline [id=static-inline] contenente <div data-21r-widget data-subdomain=demo>; wrapper fisso bottom-right [data-testid=floating-wrap] con <div data-21r-widget data-subdomain=demo data-mode=button data-label='Prenota un tavolo'>; card dinamica con host [data-testid=dynamic-mount] e bottone [data-testid=host-add-dynamic] che appende un <div data-21r-widget data-subdomain=demo data-testid=dynamic-widget>; includere <script src='/widget.js' async></script> UNA sola volta.",
+    "Dopo il commit dei due file, richiedere retest per verificare gli 8 punti della review (static mount, floating button+overlay, mutation observer dynamic mount, idempotenza, guardia doppio script, refresh, root-matched node, R21Widget API)."
+  ],
+  "critical_code_review_comments": [
+    "Il main agent ha dichiarato il fix applicato ma i file su disco e serviti dal CDN preview non lo confermano: nessuna modifica a widget.js e nessun widget-test.html creato. Verificare git status/diff prima di dichiarare fatto.",
+    "Nota implementativa quando applicherete: il MutationObserver deve gestire il caso in cui il nodo aggiunto sia ESSO STESSO l'elemento [data-21r-widget] (non solo un contenitore). scan(root) deve quindi controllare root.matches?.('[data-21r-widget]') oltre a root.querySelectorAll('[data-21r-widget]').",
+    "La guardia __r21mounted per-elemento e' gia' presente nel widget.js corrente — quindi la sola aggiunta della guardia globale + observer dovrebbe bastare per rispettare i requisiti di idempotenza."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A", "frontend": "0% (blocked - fix non presente nel codice)"},
+  "seed_data_creation": "nessuna",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Verifica preventiva rapida prima di lanciare Playwright: `grep -n 'R21_WIDGET_LOADED\\|MutationObserver' /app/frontend/public/widget.js` deve dare match, e `ls /app/frontend/public/widget-test.html` deve esistere. Se entrambi ok, testare gli 8 punti: (1) presenza iframe[data-21r-iframe] dentro #static-inline con src /book/demo?embed=1; (2) presenza <button> in [data-testid=floating-wrap] e apertura di [data-21r-overlay] al click; (3) click su [data-testid=host-add-dynamic] -> attendere ~1s -> verificare iframe dentro [data-testid=dynamic-widget] senza chiamare rescan; (4) doppio click aggiunge secondo widget dinamico, il primo mantiene 1 solo iframe; (5) inject di un secondo <script src=/widget.js> -> nessun errore, window.__R21_WIDGET_LOADED__===true, iframe count in #static-inline resta 1; (6) reload networkidle -> statici ricompaiono; (7) coperto da 3; (8) R21Widget.rescan() non duplica iframe.",
+  "rca of the issue": "Root cause: il codice descritto nella review non e' stato effettivamente committato. widget.js on-disk (mtime Jul 30) e' pre-fix; widget-test.html assente. L'URL /widget-test.html risponde 200 perche' il server di sviluppo React fa fallback su index.html per qualunque path non-statico. Mitigazione: main agent deve editare/creare i due file e riavviare (o affidarsi all'hot-reload del frontend) prima di richiedere nuovo testing."
+}

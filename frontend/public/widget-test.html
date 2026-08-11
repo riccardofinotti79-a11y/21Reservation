@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>21Reservation Widget — Test host</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      margin: 0;
+      padding: 32px;
+      max-width: 900px;
+      margin: 0 auto;
+      color: #18181b;
+      background: #fafafa;
+    }
+    h1 { font-family: Georgia, serif; font-size: 32px; margin: 0 0 8px; }
+    h2 { font-family: Georgia, serif; font-size: 22px; margin: 32px 0 12px; }
+    p  { color: #52525b; }
+    .card { background: #fff; border: 1px solid #e4e4e7; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+    button.host-btn {
+      padding: 10px 18px; border-radius: 8px; border: 1px solid #18181b;
+      background: #18181b; color: #fff; cursor: pointer; font-weight: 600;
+    }
+    #floating-wrap {
+      position: fixed; right: 24px; bottom: 24px; z-index: 100;
+    }
+    #dynamic-mount { min-height: 40px; }
+  </style>
+</head>
+<body>
+  <h1>21Reservation Widget · Host test</h1>
+  <p>Questa pagina carica <code>widget.js</code> UNA sola volta e verifica: (a) embed inline statico, (b) pulsante flottante, (c) inserimento dinamico dopo il load con MutationObserver.</p>
+
+  <h2>1) Embed inline statico</h2>
+  <div class="card">
+    <div id="static-inline" data-21r-widget data-subdomain="demo"></div>
+  </div>
+
+  <h2>2) Inserimento dinamico</h2>
+  <div class="card">
+    <p>Clicca il pulsante: verrà inserito un nuovo <code>[data-21r-widget]</code> nel div sotto. Il MutationObserver deve montarlo automaticamente, senza chiamare <code>R21Widget.rescan()</code>.</p>
+    <button class="host-btn" id="btn-add" data-testid="host-add-dynamic">Aggiungi widget dinamicamente</button>
+    <div id="dynamic-mount" data-testid="dynamic-mount" style="margin-top:12px;"></div>
+  </div>
+
+  <!-- 3) Pulsante flottante bottom-right -->
+  <div id="floating-wrap" data-testid="floating-wrap">
+    <div data-21r-widget data-subdomain="demo" data-mode="button" data-label="Prenota un tavolo"></div>
+  </div>
+
+  <script>
+    document.getElementById("btn-add").addEventListener("click", function () {
+      var host = document.getElementById("dynamic-mount");
+      var d = document.createElement("div");
+      d.setAttribute("data-21r-widget", "");
+      d.setAttribute("data-subdomain", "demo");
+      d.setAttribute("data-testid", "dynamic-widget");
+      host.appendChild(d);
+    });
+  </script>
+  <script src="/widget.js" async></script>
+</body>
+</html>

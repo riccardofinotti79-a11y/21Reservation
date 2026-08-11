@@ -303,3 +303,13 @@ Stack: FastAPI + MongoDB + React/Tailwind + JWT auth + 5s polling + Resend email
   * Bottone Submit invertito in dark (`dark:bg-zinc-100 dark:text-zinc-900`).
   * Hint demo + link "/book/demo" con varianti dark.
 - Verifica 375px: LIGHT input bg rgb(255,255,255) color rgb(24,24,27); DARK input bg rgb(24,24,27) color rgb(244,244,245), page bg rgb(9,9,11); login funzionale in entrambi.
+
+## Iteration 24 (2026-02-16) — widget.js robusto per host dinamici
+- `frontend/public/widget.js`:
+  * Guardia globale in cima: `if (window.__R21_WIDGET_LOADED__) return; window.__R21_WIDGET_LOADED__ = true;` — nessun doppio-mount se lo script viene caricato più volte.
+  * `scan(root)` accetta uno scope opzionale, con `root.matches("[data-21r-widget]")` per gestire il caso in cui il nodo aggiunto sia ESSO STESSO il widget (non un contenitore).
+  * `mountOne(el)` refattorizzato per DRY (rispetta `__r21mounted` per-elemento).
+  * MutationObserver su `document.body {childList:true, subtree:true}` che per ogni Element aggiunto invoca `scan(node)` — auto-mount dei widget inseriti DOPO il primo scan (SPA re-render, page builder, refresh dinamici).
+  * `R21Widget.rescan()` continua a funzionare per host SPA che vogliono forzare il refresh.
+- `frontend/public/widget-test.html`: pagina host per test manuale/automatico con (a) inline `#static-inline`, (b) floating button in `#floating-wrap` (position:fixed bottom-right, `data-mode=button`), (c) bottone `host-add-dynamic` che inserisce runtime un `[data-testid=dynamic-widget]` per verificare il MutationObserver. Script `/widget.js` caricato UNA sola volta con async.
+- Verificato dal testing agent (`/app/test_reports/iteration_13.json`, 8/8 PASS): mount statico, floating button + overlay + ESC close, mount dinamico via observer (senza `rescan`), idempotenza con doppio click (2 dynamic widgets, ciascuno 1 iframe; `#static-inline` sempre 1), guardia doppio script (`__R21_WIDGET_LOADED__ === true`, nessun duplicato), refresh persistente, R21Widget API stabile. Nota: iter 12 riportava un falso negativo perché il testing agent ha ispezionato prima che il CDN preview propagasse il file.

@@ -1,0 +1,32 @@
+{
+  "summary": "RETEST widget.js — Eseguiti tutti gli 8 test end-to-end su https://resto-book-100.preview.emergentagent.com/widget-test.html. Tutti passano: static inline mount, floating button + overlay + ESC close, dynamic MutationObserver mount, idempotenza (2 dynamic-widget con 1 iframe ciascuno, static resta 1), guardia doppio script (__R21_WIDGET_LOADED__ true, static resta 1 iframe), refresh (widget statici tornano, dinamico assente), API R21Widget.rescan/open esistono e rescan manuale non duplica. Il precedente iter 12 aveva erroneamente concluso il contrario.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_results_detail": {
+    "1_static_inline_mount": "PASS — iframe[data-21r-iframe] presente in #static-inline con src /book/demo?embed=1&origin=...",
+    "2_floating_button_mount": "PASS — bottone 'Prenota un tavolo' presente, nessun iframe iniziale; click apre [data-21r-overlay='1'] con iframe[data-21r-iframe='1']; ESC chiude overlay",
+    "3_dynamic_mutation_observer": "PASS — dopo click host-add-dynamic e ~1s (senza rescan), iframe montato in [data-testid=dynamic-widget] con src corretto",
+    "4_idempotency": "PASS — 2 dynamic-widget dopo secondo click, ciascuno con esattamente 1 iframe, #static-inline resta 1 iframe",
+    "5_double_script_guard": "PASS — iniezione secondo <script src='/widget.js'> non produce errori, window.__R21_WIDGET_LOADED__===true, #static-inline resta 1 iframe",
+    "6_refresh": "PASS — dopo reload networkidle, static+floating button ricompaiono, dynamic assente",
+    "7_auto_mount_root_matched": "PASS — coperto dal punto 3 (nodo aggiunto è esso stesso [data-21r-widget])",
+    "8_R21Widget_API": "PASS — typeof rescan==='function', typeof open==='function', rescan() manuale non duplica (#static-inline resta 1 iframe)"
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "cdn.tailwindcss.com viene caricato in production nella pagina wizard iframe (warning console) — non bloccante ma nota di code quality",
+    "Un 404 sporadico sulle risorse dell'iframe di prenotazione è visibile in console ma è fuori scope (contenuto interno all'iframe)"
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (skipped)", "frontend": "100% (8/8 test)"},
+  "seed_data_creation": "nessuna",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Il bug widget.js è definitivamente risolto e verificato: la guardia __R21_WIDGET_LOADED__ e il MutationObserver funzionano correttamente sul CDN preview. Il precedente iter 12 aveva riportato falsi negativi.",
+  "rca of the issue": "N/A — nessun bug riscontrato in questo retest. Il fix era già presente e servito correttamente dal CDN preview."
+}

@@ -10,6 +10,9 @@
  */
 (function () {
   "use strict";
+  // Guard against double-load of the script tag on the same page.
+  if (window.__R21_WIDGET_LOADED__) return;
+  window.__R21_WIDGET_LOADED__ = true;
   var scriptEl = document.currentScript ||
     (function () {
       var s = document.getElementsByTagName("script");
@@ -155,12 +158,20 @@
     setTimeout(function () { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 200);
   }
 
-  function scan() {
-    document.querySelectorAll("[data-21r-widget]").forEach(function (el) {
-      var mode = (el.getAttribute("data-mode") || "inline").toLowerCase();
-      if (mode === "button") mountButton(el);
-      else mountInline(el);
-    });
+  function scan(root) {
+    var scope = root && root.querySelectorAll ? root : document;
+    // Include root itself if it matches
+    if (root && root.matches && root.matches("[data-21r-widget]")) {
+      mountOne(root);
+    }
+    scope.querySelectorAll("[data-21r-widget]").forEach(mountOne);
+  }
+
+  function mountOne(el) {
+    if (!el || el.__r21mounted) return;
+    var mode = (el.getAttribute("data-mode") || "inline").toLowerCase();
+    if (mode === "button") mountButton(el);
+    else mountInline(el);
   }
 
   window.addEventListener("message", function (ev) {
@@ -188,10 +199,29 @@
   // reads `window.name` on load.
   // Kick things off:
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", scan);
+    document.addEventListener("DOMContentLoaded", function () { scan(); });
   } else {
     scan();
   }
+
+  // Observe future DOM insertions so widgets added after load (SPA re-renders,
+  // dynamic hosts, page builders) auto-mount without needing R21Widget.rescan().
+  function startObserver() {
+    if (!("MutationObserver" in window) || !document.body) return;
+    var observer = new MutationObserver(function (mutations) {
+      for (var i = 0; i < mutations.length; i++) {
+        var added = mutations[i].addedNodes;
+        for (var j = 0; j < added.length; j++) {
+          var n = added[j];
+          if (n && n.nodeType === 1) scan(n);
+        }
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+  if (document.body) startObserver();
+  else document.addEventListener("DOMContentLoaded", startObserver);
+
   // Also expose a manual API for SPA hosts
-  window.R21Widget = { rescan: scan, open: openModal };
+  window.R21Widget = { rescan: function () { scan(); }, open: openModal };
 })();
