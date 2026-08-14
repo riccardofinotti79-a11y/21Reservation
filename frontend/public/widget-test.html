@@ -18,6 +18,7 @@
     h2 { font-family: Georgia, serif; font-size: 22px; margin: 32px 0 12px; }
     p  { color: #52525b; }
     .card { background: #fff; border: 1px solid #e4e4e7; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+    .card--warm { background: #fbf7f2; border-color: #e7dccf; }
     button.host-btn {
       padding: 10px 18px; border-radius: 8px; border: 1px solid #18181b;
       background: #18181b; color: #fff; cursor: pointer; font-weight: 600;
@@ -25,28 +26,47 @@
     #floating-wrap {
       position: fixed; right: 24px; bottom: 24px; z-index: 100;
     }
+    #floating-wrap-terra {
+      position: fixed; right: 24px; bottom: 88px; z-index: 100;
+    }
     #dynamic-mount { min-height: 40px; }
+    code { background: #f4f4f5; padding: 1px 4px; border-radius: 4px; }
   </style>
 </head>
 <body>
   <h1>21Reservation Widget · Host test</h1>
-  <p>Questa pagina carica <code>widget.js</code> UNA sola volta e verifica: (a) embed inline statico, (b) pulsante flottante, (c) inserimento dinamico dopo il load con MutationObserver.</p>
+  <p>Verifica: (a) embed inline dark (default), (b) embed inline light, (c) inline light + accento terracotta, (d) pulsante flottante dark + terracotta, (e) mount dinamico via MutationObserver.</p>
 
-  <h2>1) Embed inline statico</h2>
+  <h2>1) Inline · DARK (default)</h2>
   <div class="card">
     <div id="static-inline" data-21r-widget data-subdomain="demo"></div>
   </div>
 
-  <h2>2) Inserimento dinamico</h2>
+  <h2>2) Inline · LIGHT</h2>
   <div class="card">
-    <p>Clicca il pulsante: verrà inserito un nuovo <code>[data-21r-widget]</code> nel div sotto. Il MutationObserver deve montarlo automaticamente, senza chiamare <code>R21Widget.rescan()</code>.</p>
+    <div id="static-inline-light" data-21r-widget data-subdomain="demo" data-theme="light"></div>
+  </div>
+
+  <h2>3) Inline · LIGHT + accento terracotta (#8B3A2E)</h2>
+  <div class="card card--warm">
+    <div id="static-inline-terra" data-21r-widget data-subdomain="demo" data-theme="light" data-accent="#8B3A2E"></div>
+  </div>
+
+  <h2>4) Inserimento dinamico</h2>
+  <div class="card">
+    <p>Clicca: verrà inserito un nuovo <code>[data-21r-widget]</code> (light + terra) e il MutationObserver lo monterà da solo.</p>
     <button class="host-btn" id="btn-add" data-testid="host-add-dynamic">Aggiungi widget dinamicamente</button>
     <div id="dynamic-mount" data-testid="dynamic-mount" style="margin-top:12px;"></div>
   </div>
 
-  <!-- 3) Pulsante flottante bottom-right -->
+  <!-- Pulsante flottante dark -->
   <div id="floating-wrap" data-testid="floating-wrap">
     <div data-21r-widget data-subdomain="demo" data-mode="button" data-label="Prenota un tavolo"></div>
+  </div>
+
+  <!-- Pulsante flottante con accento terracotta -->
+  <div id="floating-wrap-terra" data-testid="floating-wrap-terra">
+    <div data-21r-widget data-subdomain="demo" data-mode="button" data-label="Prenota (terra)" data-accent="#8B3A2E"></div>
   </div>
 
   <script>
@@ -55,6 +75,8 @@
       var d = document.createElement("div");
       d.setAttribute("data-21r-widget", "");
       d.setAttribute("data-subdomain", "demo");
+      d.setAttribute("data-theme", "light");
+      d.setAttribute("data-accent", "#8B3A2E");
       d.setAttribute("data-testid", "dynamic-widget");
       host.appendChild(d);
     });

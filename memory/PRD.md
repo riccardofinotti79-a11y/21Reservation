@@ -317,3 +317,9 @@ Stack: FastAPI + MongoDB + React/Tailwind + JWT auth + 5s polling + Resend email
 ## Iteration 25 (2026-02-16) — Fix CORP cross-origin per widget embed
 - `frontend/craco.config.js`: cambiato `"Cross-Origin-Resource-Policy": "same-origin"` → `"cross-origin"` nella devServer headers (`makeDevServerV5Compatible`). Nessun `X-Frame-Options` né `frame-ancestors` CSP restrittivo era impostato — verificato con grep.
 - Motivazione: widget.js e la pagina `/book/{sub}?embed=1` sono risorse pubbliche embeddabili in siti terzi; `same-origin` faceva scattare `ERR_BLOCKED_BY_RESPONSE.NotSameOrigin` sul caricamento cross-origin.
+
+## Iteration 26 (2026-02-16) — Widget: theme + accent per-embed
+- `widget.js`: `buildSrc` propaga `theme` e `accent` come query param; `makeIframe(sub, opts)` accetta `theme`/`accent`; nuovo helper `readEmbedOpts(el)` legge `data-theme` ("light"/"dark") e `data-accent` con alias `data-color` per retrocompat. `mountInline`/`mountButton` usano gli opts, `mountButton` propaga theme+accent a `openModal(sub, opts)`.
+- `PublicBooking.js`: nuovi `themeParam` e `accentParam` da `useSearchParams`; shell riceve classe `public-shell-embed--light` quando `embed && theme=light`; `--r21-accent` prende `accentParam` con fallback su `restaurant?.accent_color` e default.
+- `index.css`: nuova variante `.public-shell-embed--light` (sfondo bianco/crema `#fafaf7`, testo scuro `#1a1a1a`, override scoped su `text-white*`, `bg-white/{10,15,5}`, `border-white/{10,15,5}` per lo step indicator e i bordi input; il colore accento sui `pill-btn` resta invariato con `color:#fff` per leggibilità su terracotta).
+- `widget-test.html` aggiornato con 5 casi: (1) inline dark, (2) inline light, (3) inline light+accento `#8B3A2E`, (4) mount dinamico light+terra via observer, (5) floating buttons dark + terracotta.

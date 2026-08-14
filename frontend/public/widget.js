@@ -27,6 +27,8 @@
   function buildSrc(sub, params) {
     var qs = "embed=1";
     if (params && params.origin) qs += "&origin=" + encodeURIComponent(params.origin);
+    if (params && params.theme) qs += "&theme=" + encodeURIComponent(params.theme);
+    if (params && params.accent) qs += "&accent=" + encodeURIComponent(params.accent);
     return BASE + "/book/" + encodeURIComponent(sub) + "?" + qs;
   }
 
@@ -38,7 +40,11 @@
     iframe.setAttribute("data-21r-iframe", "1");
     iframe.setAttribute("allow", "clipboard-write; payment *");
     iframe.setAttribute("title", "Prenota un tavolo");
-    iframe.src = buildSrc(sub, { origin: window.location.origin });
+    iframe.src = buildSrc(sub, {
+      origin: window.location.origin,
+      theme: opts && opts.theme,
+      accent: opts && opts.accent,
+    });
     iframe.style.cssText = [
       "width:100%",
       "border:0",
@@ -51,12 +57,22 @@
     return iframe;
   }
 
+  function readEmbedOpts(el, defaults) {
+    var theme = (el.getAttribute("data-theme") || "").toLowerCase();
+    var accent = el.getAttribute("data-accent") || el.getAttribute("data-color") || "";
+    return {
+      theme: theme === "light" ? "light" : (theme === "dark" ? "dark" : ""),
+      accent: accent || "",
+      minHeight: defaults && defaults.minHeight,
+    };
+  }
+
   function mountInline(el) {
     var sub = el.getAttribute("data-subdomain");
     if (!sub) return;
     if (el.__r21mounted) return;
     el.__r21mounted = true;
-    var iframe = makeIframe(sub, { minHeight: 720 });
+    var iframe = makeIframe(sub, readEmbedOpts(el, { minHeight: 720 }));
     el.appendChild(iframe);
   }
 
@@ -66,7 +82,8 @@
     if (el.__r21mounted) return;
     el.__r21mounted = true;
     var label = el.getAttribute("data-label") || "Prenota un tavolo";
-    var accent = el.getAttribute("data-color") || "#D97706";
+    var accent = el.getAttribute("data-accent") || el.getAttribute("data-color") || "#D97706";
+    var theme = (el.getAttribute("data-theme") || "").toLowerCase();
     var btn = document.createElement("button");
     btn.type = "button";
     btn.innerText = label;
@@ -90,7 +107,7 @@
     el.appendChild(btn);
   }
 
-  function openModal(sub) {
+  function openModal(sub, opts) {
     var overlay = document.createElement("div");
     overlay.setAttribute("data-21r-overlay", "1");
     overlay.style.cssText = [
@@ -140,7 +157,11 @@
     overlay.addEventListener("click", function (ev) {
       if (ev.target === overlay) closeModal(overlay);
     });
-    var iframe = makeIframe(sub, { minHeight: 640 });
+    var iframe = makeIframe(sub, {
+      minHeight: 640,
+      theme: opts && opts.theme,
+      accent: opts && opts.accent,
+    });
     iframe.style.cssText += ";width:100%;height:100%;";
     shell.appendChild(closeBtn);
     shell.appendChild(iframe);

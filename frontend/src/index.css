@@ -94,6 +94,46 @@ html, body {
     color: hsl(var(--muted-foreground));
 }
 
+.public-shell-embed--light {
+    background: transparent;
+    color: #1a1a1a;
+    min-height: 0;
+}
+.public-shell-embed--light .glass {
+    background: #ffffff;
+    border-color: rgba(0, 0, 0, 0.08);
+    color: #1a1a1a;
+    box-shadow: 0 8px 32px -12px rgba(0, 0, 0, 0.12);
+}
+.public-shell-embed--light .glass input,
+.public-shell-embed--light .glass select,
+.public-shell-embed--light .glass textarea {
+    background: #fafaf7;
+    color: #1a1a1a;
+    border-color: rgba(0, 0, 0, 0.12);
+}
+.public-shell-embed--light .glass input::placeholder,
+.public-shell-embed--light .glass textarea::placeholder {
+    color: rgba(0, 0, 0, 0.35);
+}
+/* Bright text overrides used by the wizard shell */
+.public-shell-embed--light .text-white { color: #1a1a1a !important; }
+.public-shell-embed--light .text-white\/90 { color: rgba(0, 0, 0, 0.86) !important; }
+.public-shell-embed--light .text-white\/80 { color: rgba(0, 0, 0, 0.78) !important; }
+.public-shell-embed--light .text-white\/70 { color: rgba(0, 0, 0, 0.68) !important; }
+.public-shell-embed--light .text-white\/60 { color: rgba(0, 0, 0, 0.58) !important; }
+.public-shell-embed--light .text-white\/50 { color: rgba(0, 0, 0, 0.48) !important; }
+.public-shell-embed--light .text-white\/40 { color: rgba(0, 0, 0, 0.4) !important; }
+/* Step indicator inactive bar */
+.public-shell-embed--light .bg-white\/10,
+.public-shell-embed--light .bg-white\/15,
+.public-shell-embed--light .bg-white\/5 { background-color: rgba(0, 0, 0, 0.08) !important; }
+.public-shell-embed--light .border-white\/10,
+.public-shell-embed--light .border-white\/15,
+.public-shell-embed--light .border-white\/5 { border-color: rgba(0, 0, 0, 0.1) !important; }
+/* Primary accent button keeps its color; ensure legible label on light backgrounds */
+.public-shell-embed--light .pill-btn { color: #ffffff; }
+
 /* Public wizard: dark luxury */
 .public-shell {
     background: #09090b;

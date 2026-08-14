@@ -27,6 +27,9 @@ export default function PublicBooking() {
   const { subdomain } = useParams();
   const [searchParams] = useSearchParams();
   const embed = searchParams.get("embed") === "1";
+  const themeParam = (searchParams.get("theme") || "").toLowerCase();
+  const accentParam = searchParams.get("accent");
+  const embedLight = embed && themeParam === "light";
   const { t, lang } = useI18n();
   const [restaurant, setRestaurant] = useState(null);
   const [servicesOffered, setServicesOffered] = useState([]);
@@ -199,8 +202,12 @@ export default function PublicBooking() {
   const totalSteps = 4;
 
   return (
-    <div className={embed ? "public-shell public-shell-embed" : "public-shell"} ref={shellRef}
-         style={{ "--r21-accent": restaurant?.accent_color || "#D97706" }}>
+    <div className={
+           embedLight ? "public-shell public-shell-embed public-shell-embed--light"
+           : embed ? "public-shell public-shell-embed"
+           : "public-shell"
+         } ref={shellRef}
+         style={{ "--r21-accent": accentParam || restaurant?.accent_color || "#D97706" }}>
       {!embed && (
         <>
           {(() => {
