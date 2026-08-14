@@ -323,3 +323,13 @@ Stack: FastAPI + MongoDB + React/Tailwind + JWT auth + 5s polling + Resend email
 - `PublicBooking.js`: nuovi `themeParam` e `accentParam` da `useSearchParams`; shell riceve classe `public-shell-embed--light` quando `embed && theme=light`; `--r21-accent` prende `accentParam` con fallback su `restaurant?.accent_color` e default.
 - `index.css`: nuova variante `.public-shell-embed--light` (sfondo bianco/crema `#fafaf7`, testo scuro `#1a1a1a`, override scoped su `text-white*`, `bg-white/{10,15,5}`, `border-white/{10,15,5}` per lo step indicator e i bordi input; il colore accento sui `pill-btn` resta invariato con `color:#fff` per leggibilità su terracotta).
 - `widget-test.html` aggiornato con 5 casi: (1) inline dark, (2) inline light, (3) inline light+accento `#8B3A2E`, (4) mount dinamico light+terra via observer, (5) floating buttons dark + terracotta.
+
+## Iteration 27 (2026-02-16) — Fix shell embed light (CSS specificity + fixture)
+- `index.css`: la variante light aveva bg/color e regole `.glass` con specificità 0,0,2,0 identica a `.public-shell` e `.public-shell-embed .glass` che seguivano nel file → vincevano per cascade order. Fix:
+  * `.public-shell.public-shell-embed.public-shell-embed--light` (specificità 0,0,3,0) per bg `#fafaf7` + color `#1a1a1a`.
+  * `.public-shell-embed.public-shell-embed--light .glass` (0,0,3,0) per bg bianco + input light.
+  * `.public-shell-embed--light::before { display:none }` per rimuovere il gradient overlay dark.
+  * Override per step indicator (`.bg-white/{5,10,15}`), border-white/*, selection cards accent (`.border-amber-600/{40,60}` → `var(--r21-accent)`), pill-ghost, hover states.
+- `widget.js`: `btn.onclick` del floating button ora propaga `{ theme, accent }` a `openModal(sub, opts)`.
+- `widget-test.html`: fixture `#floating-wrap-terra` ora ha `data-theme="light"` così l'overlay iframe riceve theme+accent end-to-end.
+- Verifica testing agent (`/app/test_reports/iteration_17.json`, 5/5 PASS): tutti i casi (dark invariato, inline light, inline light+terra, floating terra overlay, dynamic mount) confermati in runtime post-cache-bust; `.glass` bg = `rgb(255,255,255)` in light, shell bg = `rgb(250,250,247)` in light, overlay del pulsante terra ha src con `theme=light&accent=%238B3A2E` e classe `public-shell-embed--light`. Le iter 15 e 16 avevano riportato falsi negativi per cache CDN stale.

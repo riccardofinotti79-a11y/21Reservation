@@ -1,0 +1,23 @@
+{
+  "summary": "Retest iter 17 dei bug shell-embed light + floating-terra. TUTTI I FIX RIVENDICATI DAL MAIN AGENT SONO CONFERMATI ON DISK E FUNZIONANTI IN RUNTIME. I 2 bug residui dell'iter 16 sono risolti. Non-regressione preservata.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "accentVar letta da getPropertyValue('--accent') restituisce '210 20% 96%' in tutti gli iframe (anche terra). Il colore terra viene comunque applicato via un altro meccanismo (query string accent=%238B3A2E) → probabilmente il valore terra è messo su una CSS var diversa (--accent-color?) o inline style. Non blocca la feature ma il naming è ambiguo: verificare che il var --accent in .public-shell rifletta davvero l'accent dinamico per coerenza test/debug futuri.",
+    "widget-test.html usa cdn.tailwindcss.com in produzione (warning console) — accettabile per fixture di test, non per produzione."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a", "frontend": "100% (5/5 checks pass)"},
+  "test_credentials": "n/a",
+  "seed_data_creation": "",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Evidenze runtime (URL cache-busted ?v=<ts>, networkidle+3.5s): (1) static-inline (dark): shellBg=rgba(0,0,0,0), color=rgb(250,250,250), glassBg=rgba(15,15,18,0.92) — dark invariato PASS. (2) static-inline-light: shellClass include 'public-shell-embed--light', shellBg=rgb(250,250,247), color=rgb(26,26,26), glassBg=rgb(255,255,255) PASS. (3) static-inline-terra: come light + iframe src ha theme=light&accent=%238B3A2E, glassBg=rgb(255,255,255) PASS. (4) floating-terra overlay: dopo click sul bottone, [data-21r-overlay=1] contiene iframe con src che ha SIA theme=light SIA accent=%238B3A2E, shellClass='public-shell public-shell-embed public-shell-embed--light', glassBg=rgb(255,255,255) PASS. (5) Non-regressione: shell bg/color light OK, dark invariato, dynamic mount OK — PASS (confermato in runtime, non solo from iter 15). Screenshot allegato mostra modal 'Pranzo o cena?' in tema light su overlay dark backdrop.",
+  "rca of the issue": "Fix confermati su disco: (A) index.css:103 usa selettore chained '.public-shell-embed.public-shell-embed--light .glass' con specificità 0,0,3,0 che batte '.public-shell-embed .glass' (0,0,2,0). (B) widget-test.html:69 include data-theme=\"light\" sul marker floating-terra, il widget.js lo propaga come query param 'theme=light' nell'iframe src, che aggiunge la classe --light sulla shell. Entrambi funzionano end-to-end in runtime."
+}

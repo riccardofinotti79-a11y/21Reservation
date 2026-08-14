@@ -1,0 +1,39 @@
+{
+  "summary": "Retest iter 16 dei bug shell-embed light. RISULTATO: entrambi i fix rivendicati dal main agent NON sono stati applicati al codice su disco. I due bug residui dell'iter 15 restano invariati. Non-regressione OK.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "index.css (.public-shell-embed--light .glass)",
+        "issue": "GLASS LIGHT ancora dark. In #static-inline-light e #static-inline-terra il .glass bg è rgba(15,15,18,0.92) invece di rgb(255,255,255). Il selettore chained rivendicato ('.public-shell-embed.public-shell-embed--light .glass' spec 0,0,3,0) NON è presente: line 103 è ancora '.public-shell-embed--light .glass' (spec 0,0,2,0) che ha la stessa specificità di line 173 '.public-shell-embed .glass' (0,0,2,0) ma perde per ordine sorgente perché line 173 viene DOPO.",
+        "selector": "/app/frontend/src/index.css:103",
+        "priority": "HIGH"
+      },
+      {
+        "component": "widget-test.html (#floating-wrap-terra)",
+        "issue": "FLOATING TERRA OVERLAY manca theme=light. L'iframe src contiene solo 'accent=%238B3A2E', NON 'theme=light'. La shell nell'overlay è 'public-shell public-shell-embed' (no --light) con bg trasparente. Root cause: il div interno '#floating-wrap-terra > [data-21r-widget]' NON ha l'attributo data-theme=\"light\" (getAttribute returns null). Il fix (B) rivendicato dal main agent NON è su disco.",
+        "selector": "/app/frontend/public/widget-test.html:69",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "APPLICA VERAMENTE il fix (A): in /app/frontend/src/index.css sostituisci alla line 103 il selettore '.public-shell-embed--light .glass' con '.public-shell-embed.public-shell-embed--light .glass' (chained, spec 0,0,3,0) per battere '.public-shell-embed .glass' della line 173. Stesso trattamento per gli input/select/textarea/placeholder alle lines 109-118 se vuoi coerenza (attualmente overrides sono già persi per stesso motivo). Alternativa: spostare l'intero blocco light DOPO la line 173.",
+    "APPLICA VERAMENTE il fix (B): in /app/frontend/public/widget-test.html:69 aggiungi data-theme=\"light\" all'elemento '#floating-wrap-terra > [data-21r-widget]'. Attualmente ha solo data-subdomain, data-mode, data-label, data-accent."
+  ],
+  "critical_code_review_comments": [
+    "Il main agent nel prompt afferma che le regole sono già su disco ma il grep mostra il contrario. Verificare che la scrittura file sia effettivamente committata prima di lanciare retest.",
+    "Regola CSS '.public-shell-embed--light .glass' e '.public-shell-embed .glass' hanno specificità identica (0,0,2,0): affidarsi all'ordine di dichiarazione è fragile. Preferire selettore chained o !important solo per la variante light."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a", "frontend": "60% (3/5 checks pass: non-regressione dark, light shell bg/color, terra accent var; falliscono glass-light e floating-terra-theme)"},
+  "test_credentials": "n/a",
+  "seed_data_creation": "",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Test evidence catturata: static-inline (dark) shellBg=rgba(0,0,0,0) color=rgb(250,250,250) OK; static-inline-light shellBg=rgb(250,250,247) color=rgb(26,26,26) OK ma glassBg=rgba(15,15,18,0.92) FAIL; static-inline-terra come sopra + accentVar=#8B3A2E OK ma glassBg FAIL; floating-terra overlay iframe src='...&accent=%238B3A2E' (manca theme=light), shellClass='public-shell public-shell-embed' (manca --light). Dopo che main agent applica DAVVERO i 2 fix, rilanciare stesso test playwright con cache-bust ?v=Date.now().",
+  "rca of the issue": "1) Bug glass light: doppia regola con stessa specificità, la regola 'dark generica' viene dichiarata DOPO la 'light' e la sovrascrive. Serve chaining o riordino. 2) Bug floating-terra: attributo data-theme=\"light\" mancante sul widget marker → widget.js costruisce l'iframe src senza il param theme=light. Entrambi i fix erano rivendicati dal main agent come applicati ma il grep/AST del file mostra che NON lo sono."
+}

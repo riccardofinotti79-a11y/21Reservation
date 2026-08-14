@@ -103,7 +103,7 @@
     ].join(";");
     btn.onmouseenter = function () { btn.style.transform = "translateY(-1px)"; };
     btn.onmouseleave = function () { btn.style.transform = "translateY(0)"; };
-    btn.onclick = function () { openModal(sub); };
+    btn.onclick = function () { openModal(sub, { theme: theme, accent: accent }); };
     el.appendChild(btn);
   }
 

@@ -94,26 +94,27 @@ html, body {
     color: hsl(var(--muted-foreground));
 }
 
-.public-shell-embed--light {
-    background: transparent;
+.public-shell.public-shell-embed.public-shell-embed--light {
+    background: #fafaf7;
     color: #1a1a1a;
     min-height: 0;
 }
-.public-shell-embed--light .glass {
+.public-shell-embed--light::before { display: none; }
+.public-shell-embed.public-shell-embed--light .glass {
     background: #ffffff;
     border-color: rgba(0, 0, 0, 0.08);
     color: #1a1a1a;
     box-shadow: 0 8px 32px -12px rgba(0, 0, 0, 0.12);
 }
-.public-shell-embed--light .glass input,
-.public-shell-embed--light .glass select,
-.public-shell-embed--light .glass textarea {
+.public-shell-embed.public-shell-embed--light .glass input,
+.public-shell-embed.public-shell-embed--light .glass select,
+.public-shell-embed.public-shell-embed--light .glass textarea {
     background: #fafaf7;
     color: #1a1a1a;
     border-color: rgba(0, 0, 0, 0.12);
 }
-.public-shell-embed--light .glass input::placeholder,
-.public-shell-embed--light .glass textarea::placeholder {
+.public-shell-embed.public-shell-embed--light .glass input::placeholder,
+.public-shell-embed.public-shell-embed--light .glass textarea::placeholder {
     color: rgba(0, 0, 0, 0.35);
 }
 /* Bright text overrides used by the wizard shell */
@@ -124,15 +125,36 @@ html, body {
 .public-shell-embed--light .text-white\/60 { color: rgba(0, 0, 0, 0.58) !important; }
 .public-shell-embed--light .text-white\/50 { color: rgba(0, 0, 0, 0.48) !important; }
 .public-shell-embed--light .text-white\/40 { color: rgba(0, 0, 0, 0.4) !important; }
-/* Step indicator inactive bar */
+/* Step indicator inactive bar + card surfaces */
 .public-shell-embed--light .bg-white\/10,
 .public-shell-embed--light .bg-white\/15,
-.public-shell-embed--light .bg-white\/5 { background-color: rgba(0, 0, 0, 0.08) !important; }
+.public-shell-embed--light .bg-white\/5 { background-color: rgba(0, 0, 0, 0.06) !important; }
+.public-shell-embed--light .hover\:bg-white\/10:hover,
+.public-shell-embed--light .hover\:bg-white\/15:hover { background-color: rgba(0, 0, 0, 0.08) !important; }
 .public-shell-embed--light .border-white\/10,
 .public-shell-embed--light .border-white\/15,
-.public-shell-embed--light .border-white\/5 { border-color: rgba(0, 0, 0, 0.1) !important; }
-/* Primary accent button keeps its color; ensure legible label on light backgrounds */
-.public-shell-embed--light .pill-btn { color: #ffffff; }
+.public-shell-embed--light .border-white\/20,
+.public-shell-embed--light .border-white\/5 { border-color: rgba(0, 0, 0, 0.12) !important; }
+/* Selection cards active (accent border) — Tailwind arbitrary rgba selectors */
+.public-shell-embed--light .border-amber-600\/40,
+.public-shell-embed--light .border-amber-600\/60 {
+    border-color: var(--r21-accent, #D97706) !important;
+}
+.public-shell-embed--light .bg-amber-600\/10,
+.public-shell-embed--light .bg-amber-600\/20 {
+    background-color: color-mix(in srgb, var(--r21-accent, #D97706) 12%, transparent) !important;
+}
+/* Primary accent button keeps its color; force white label on light backgrounds */
+.public-shell-embed--light .pill-btn { color: #ffffff !important; }
+/* Ghost buttons (secondary) become dark-outlined on light */
+.public-shell-embed--light .pill-ghost {
+    border-color: rgba(0, 0, 0, 0.15) !important;
+    color: #1a1a1a !important;
+    background: transparent !important;
+}
+.public-shell-embed--light .pill-ghost:hover {
+    background: rgba(0, 0, 0, 0.04) !important;
+}
 
 /* Public wizard: dark luxury */
 .public-shell {

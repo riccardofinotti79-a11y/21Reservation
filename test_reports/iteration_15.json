@@ -1,0 +1,46 @@
+{
+  "summary": "Retest bug shell embed light (iter 15). Su 8 verifiche richieste, 5 PASSANO (shell bg light #fafaf7, shell color #1a1a1a, dark invariato, accent terracotta var, floating-terra bg + dynamic MutationObserver iframe con theme=light&accent). 3 FALLISCONO: (1) .glass in light mode resta scuro rgba(15,15,18,0.92) invece di #ffffff a causa di CSS specificity/ordering bug; (2) step indicator .bg-white/10 non trovato nella pagina probata (probabilmente il wizard non ha ancora raggiunto lo step con la barra visibile o classe scapata); (3) floating button terra apre overlay con iframe src PRIVO di theme=light (contiene solo accent), quindi la shell interna rimane scura.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "index.css .glass in embed light",
+        "issue": "La regola .public-shell-embed .glass (linea 173, bg rgba(15,15,18,0.92) DARK) sovrascrive .public-shell-embed--light .glass (linea 103, bg #ffffff) perche' entrambe hanno specificita' (0,0,2,0) ma quella dark viene DOPO nel file. Risultato: in embed light la carta glass resta scura. Fix: aumentare specificita' chained -> .public-shell-embed.public-shell-embed--light .glass, oppure spostare le regole light DOPO le regole dark, oppure aggiungere !important su background/border-color.",
+        "selector": ".public-shell-embed--light .glass",
+        "priority": "HIGH"
+      },
+      {
+        "component": "widget-test.html #floating-wrap-terra",
+        "issue": "Il div wrapper di floating-wrap-terra NON ha l'attributo data-theme=\"light\" (linea 69). Quindi widget.js legge theme=\"\" e openModal costruisce src iframe SENZA theme=light. Src risultante: /book/demo?embed=1&origin=...&accent=%238B3A2E (manca theme=light). Di conseguenza la shell nell'overlay rimane in modalita' scura anche se l'accent terra e' impostato. Fix: aggiungere data-theme=\"light\" al div a linea 69 di widget-test.html (fixture) OPPURE far si che widget.js aggiunga automaticamente theme=light quando c'e' un accent custom (business decision del main agent).",
+        "selector": "#floating-wrap-terra [data-21r-widget]",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "detailed_results": {
+    "static-inline-light": {"shellBg": "rgb(250, 250, 247)", "shellColor": "rgb(26, 26, 26)", "classes": "public-shell public-shell-embed public-shell-embed--light", "accentVar": "#D97706", "glassBg_ACTUAL": "rgba(15, 15, 18, 0.92)", "glassBg_EXPECTED": "rgb(255, 255, 255)", "PASS": ["bg", "color"], "FAIL": ["glass"]},
+    "static-inline-terra": {"shellBg": "rgb(250, 250, 247)", "shellColor": "rgb(26, 26, 26)", "classes": "public-shell public-shell-embed public-shell-embed--light", "accentVar": "#8B3A2E", "PASS": ["bg", "accent"], "FAIL": ["glass same as above"]},
+    "static-inline-dark": {"shellBg": "rgba(0, 0, 0, 0)", "shellColor": "rgb(250, 250, 250)", "classes": "public-shell public-shell-embed", "PASS": ["dark unchanged"]},
+    "floating-terra-button": {"btnBg": "rgb(139, 58, 46)", "overlay_iframe_src": "/book/demo?embed=1&origin=...&accent=%238B3A2E", "MISSING": "theme=light nel src", "overlay_shell_bg": "rgba(0, 0, 0, 0)", "overlay_shell_class": "public-shell public-shell-embed (NO --light)", "PASS": ["btn bg", "accent var propagato"], "FAIL": ["theme=light non passato all'iframe -> shell dark"]},
+    "dynamic-add": {"iframe_src": "/book/demo?embed=1&origin=...&theme=light&accent=%238B3A2E", "PASS": ["theme=light e accent presenti nell'iframe dinamico"]}
+  },
+  "test_report_links": [],
+  "action_items": [
+    "FIX CSS SPECIFICITY: in /app/frontend/src/index.css spostare il blocco '.public-shell-embed--light .glass' (linee 103-118) DOPO la regola '.public-shell-embed .glass' (linee 173-176), oppure aumentare la specificita' con chained selector: '.public-shell-embed.public-shell-embed--light .glass { ... }'. Attualmente il glass rimane scuro in light mode.",
+    "FIX FIXTURE floating-wrap-terra: in /app/frontend/public/widget-test.html linea 69 aggiungere data-theme=\"light\" al div [data-21r-widget], cosi' widget.js passera' theme=light a openModal e l'iframe dell'overlay avra' src con theme=light. Alternativa: modificare widget.js per aggiungere automaticamente theme=light se e' definito un data-accent custom.",
+    "Nota: step indicator .bg-white/10 non e' stato trovato nel DOM al momento del probing (probabilmente perche' lo wizard e' allo step 1 e la barra ha classi diverse o e' resa via SVG). Consiglio: verificare manualmente che al load la barra step inattiva risulti chiara."
+  ],
+  "critical_code_review_comments": [
+    "CSS ordering fragile: le regole di override per il tema light dovrebbero essere raggruppate DOPO le regole default, oppure usare selettori piu' specifici (chained). Rischio di regressione ad ogni futura modifica.",
+    "Attributo data-theme sui data-21r-widget e' input critico ma opzionale. Considerare warning in console se e' presente data-accent custom ma data-theme e' vuoto -> spesso l'utente si aspetta light in quel caso."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A", "frontend": "62%"},
+  "seed_data_creation": "",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iter 15: confermati fix parziali. Shell bg + color + dark invariato + terra accent + dynamic iframe = OK. Restano DUE bug reali: (A) .glass background non diventa bianco in light mode per CSS ordering (linea 103 prima di linea 173) -- serve chained selector o riordino; (B) widget-test.html floating-wrap-terra non ha data-theme=light quindi l'overlay iframe non riceve theme=light. Dopo il fix di E1 verificare in ordine: static-inline-light glass bg = rgb(255,255,255), floating-terra overlay iframe src contiene theme=light e shell interna ha classe public-shell-embed--light con bg #fafaf7.",
+  "rca_of_the_issue": "Bug A (glass dark in light mode): entrambe le regole '.public-shell-embed .glass' e '.public-shell-embed--light .glass' hanno specificita' identica (0,0,2,0). Nel file la regola dark (linea 173) segue quella light (linea 103), quindi CSS cascade order sceglie l'ultima -> dark vince. Riproduzione: aprire widget-test.html?v=X, iframe #static-inline-light, ispezionare .glass -> background rgba(15,15,18,0.92). Mitigazione: usare '.public-shell-embed.public-shell-embed--light .glass' (spec 0,0,3,0). Bug B (floating terra senza theme): widget.js linea 106 passa theme leggendo data-theme, ma widget-test.html linea 69 non lo imposta. Mitigazione: aggiungere data-theme=\"light\" nel fixture."
+}

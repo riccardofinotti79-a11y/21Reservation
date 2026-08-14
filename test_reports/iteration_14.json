@@ -1,0 +1,44 @@
+{
+  "summary": "Testato la variante LIGHT della shell embed del wizard di prenotazione su widget-test.html a 375x900. Il fix descritto NON è presente nel codice: la variante light ha ancora sfondo scuro, testo bianco e glass scuro. Anche il pulsante flottante non propaga theme/accent all'overlay modale.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "PublicBooking shell (embed light)", "issue": "getComputedStyle(.public-shell).backgroundColor = rgba(0,0,0,0) (transparent) invece di rgb(250,250,247). La classe .public-shell-embed--light è APPLICATA (verificata su shell.className) ma il CSS a /app/frontend/src/index.css riga 97 dichiara `background: transparent` NON `#fafaf7`. Inoltre non esiste il selettore chained `.public-shell.public-shell-embed.public-shell-embed--light` descritto nella review. Il risultato visivo è che il case 'Inline · LIGHT' mostra ancora shell scura.", "selector": ".public-shell-embed--light", "priority": "CRITICAL"},
+      {"component": "PublicBooking shell text (light)", "issue": "getComputedStyle(.public-shell).color = rgb(250,250,250) invece di rgb(26,26,26). Causa: `.public-shell { color:#fafafa }` (riga 138) è definita DOPO `.public-shell-embed--light { color:#1a1a1a }` (riga 97) con stessa specificità 0,0,1,0 -> la regola dark vince per cascade order.", "selector": ".public-shell-embed--light", "priority": "CRITICAL"},
+      {"component": "PublicBooking glass (light)", "issue": "getComputedStyle(.glass).backgroundColor = rgba(15,15,18,0.92) (scuro) invece di bianco/crema. Causa: `.public-shell-embed .glass { background: rgba(15,15,18,0.92) }` (riga 151) è definita DOPO `.public-shell-embed--light .glass { background:#fff }` (riga 102) con stessa specificità 0,0,2,0 -> la regola dark vince.", "selector": ".public-shell-embed--light .glass", "priority": "CRITICAL"},
+      {"component": "widget.js floating button", "issue": "In /app/frontend/public/widget.js riga 106: `btn.onclick = function(){ openModal(sub); }` NON passa opts. openModal(sub, opts) usa opts.theme/opts.accent per costruire src iframe; quindi il pulsante flottante terra apre overlay con iframe senza query theme/accent. L'iframe overlay ha classe `public-shell public-shell-embed` (senza --light) e nessun accento personalizzato. Verificato: src iframe overlay = `/book/demo?embed=1&origin=...` senza theme/accent.", "selector": "[data-testid=floating-wrap-terra] button", "priority": "HIGH"}
+    ],
+    "integration_issues": [
+      {"flow": "Widget embed LIGHT", "issue": "La classe --light viene applicata correttamente dal componente React (theme=light passato tramite query -> classe applicata), ma le regole CSS non hanno abbastanza specificità o non sono nel giusto ordine per vincere sulle regole di .public-shell / .public-shell-embed / .public-shell-embed .glass definite più in basso nel file.", "affected_selectors": [".public-shell-embed--light", ".public-shell-embed--light .glass"]},
+      {"flow": "Widget floating overlay", "issue": "openModal chiamato senza opts dal pulsante flottante -> theme/accent persi. Il case 'floating terra' apre overlay che eredita dark shell, non light+terra.", "affected_selectors": ["[data-testid=floating-wrap-terra] button", "[data-21r-overlay=1]"]}
+    ],
+    "design_issues": []
+  },
+  "test_evidence": {
+    "inline_dark": {"shellBg": "rgba(0,0,0,0)", "shellColor": "rgb(250,250,250)", "glassBg": "rgba(15,15,18,0.92)", "classes": "public-shell public-shell-embed"},
+    "inline_light": {"shellBg": "rgba(0,0,0,0)", "shellColor": "rgb(250,250,250)", "glassBg": "rgba(15,15,18,0.92)", "classes": "public-shell public-shell-embed public-shell-embed--light", "expected_bg": "rgb(250,250,247)", "expected_color": "rgb(26,26,26)"},
+    "inline_light_terra": {"shellBg": "rgba(0,0,0,0)", "shellColor": "rgb(250,250,250)", "glassBg": "rgba(15,15,18,0.92)", "classes": "public-shell public-shell-embed public-shell-embed--light"},
+    "floating_terra_button_bg": "rgb(139,58,46) OK (=#8B3A2E)",
+    "floating_terra_overlay_shell": {"bg": "rgba(0,0,0,0)", "color": "rgb(250,250,250)", "classes": "public-shell public-shell-embed", "issue": "manca --light e accent nell'iframe src"},
+    "css_var_accent_note": "Verificato che PublicBooking.js applica --r21-accent come inline style sul div .public-shell (non su documentElement). Il test iniziale su documentElement.style era errato; non è un bug del componente."
+  },
+  "action_items": [
+    "Il fix CSS descritto nella review NON è stato applicato al file /app/frontend/src/index.css. La riga 97 attualmente dichiara `.public-shell-embed--light { background: transparent }`. Applicare il selettore chained `.public-shell.public-shell-embed.public-shell-embed--light { background:#fafaf7; color:#1a1a1a; }` con specificità 0,0,3,0 in modo da vincere su `.public-shell` (0,0,1,0) e `.public-shell-embed` (0,0,1,0).",
+    "Aggiungere anche selettore chained per `.glass` es. `.public-shell-embed.public-shell-embed--light .glass { background:#ffffff; ... }` (0,0,3,0) per vincere su `.public-shell-embed .glass` (0,0,2,0).",
+    "Disattivare `.public-shell::before` gradient nel variant light (menzionato in review ma non implementato).",
+    "In /app/frontend/public/widget.js riga 106: sostituire `btn.onclick = function(){ openModal(sub); }` con qualcosa tipo `btn.onclick = function(){ openModal(sub, { theme: theme, accent: accent }); }` per propagare theme/accent all'overlay iframe dal pulsante flottante.",
+    "Ri-verificare selection cards accent, pill-ghost, hover states una volta corretto il bg base."
+  ],
+  "critical_code_review_comments": [
+    "L'ordine delle regole CSS in /app/frontend/src/index.css è fondamentale: le regole più specifiche del tema light (righe 97-135) sono definite PRIMA delle regole base (.public-shell riga 138, .public-shell-embed riga 147, .public-shell-embed .glass riga 151) con specificità uguale o minore. Il fix va applicato aumentando la specificità (chained selectors) come descritto nella review, oppure spostando le regole light dopo le regole base.",
+    "widget.js: la funzione openModal accetta opts ma il caller flottante (riga 106) non lo usa. Ciò rompe il case 'floating terra' e qualsiasi futuro use case con tema/accent custom per il pulsante flottante."
+  ],
+  "test_report_links": [],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (skipped)", "frontend": "12% (1 su 8 assert passa: solo il bg del pulsante flottante terracotta = #8B3A2E)"},
+  "seed_data_creation": "",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Verificare che dopo il fix: (1) `.public-shell.public-shell-embed.public-shell-embed--light` computed bg = rgb(250,250,247), color = rgb(26,26,26); (2) `.glass` nel light iframe abbia bg chiaro; (3) widget.js floating button propaghi theme+accent (verificare iframe src contenga `theme=light&accent=%238B3A2E` per il case terra); (4) il case DARK (`#static-inline`) resti invariato. Usare frameLocator o iframe.content_frame() same-origin.",
+  "rca of the issue": "Il fix descritto nel problem statement (selettore chained `.public-shell.public-shell-embed.public-shell-embed--light` con background:#fafaf7) NON è presente nel file /app/frontend/src/index.css. Il file contiene ancora la vecchia versione con `.public-shell-embed--light { background: transparent }` (riga 97-101, singola classe, specificità 0,0,1,0) che viene sovrascritta dalle regole base `.public-shell` (riga 138) e `.public-shell-embed` (riga 147) definite più tardi con stessa specificità. Stesso pattern per il .glass. Inoltre widget.js linea 106 non propaga opts a openModal, causando la perdita di theme/accent per il pulsante flottante. Reproduzione: aprire widget-test.html a 375x900, ispezionare computed style di .public-shell dentro l'iframe #static-inline-light -> bg è trasparente e color è bianco, non i valori attesi. Mitigazione: applicare esattamente il fix CSS descritto nella review e correggere widget.js openModal call site."
+}
