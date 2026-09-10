@@ -110,7 +110,7 @@ class UserPublic(BaseModel):
 
 class LoginRequest(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(min_length=6)
 
 
 class LoginResponse(BaseModel):
@@ -125,7 +125,7 @@ class AdminRestaurantCreate(BaseModel):
     subdomain: str
     owner_name: str
     owner_email: EmailStr
-    owner_password: str
+    owner_password: str = Field(min_length=8)
     language: str = "it"
 
 
@@ -138,7 +138,7 @@ class AdminRestaurantUpdate(BaseModel):
 class AdminUserCreate(BaseModel):
     name: str
     email: EmailStr
-    password: str
+    password: str = Field(min_length=8)
     role: Literal["owner", "staff"] = "staff"
 
 

@@ -879,7 +879,8 @@ async def _try_notify_waitlist(rid: str, date_str: str):
 
 
 @api.post("/public/{subdomain}/waitlist", response_model=WaitlistEntry)
-async def public_join_waitlist(subdomain: str, body: WaitlistCreate):
+async def public_join_waitlist(subdomain: str, body: WaitlistCreate, request: Request):
+    _check_public_rate_limit(request)
     r = await _get_restaurant_by_subdomain(subdomain)
     rid = r["id"]
     customer = await _find_or_create_customer(rid, body.customer_name, body.customer_email, body.customer_phone)
@@ -1173,7 +1174,8 @@ async def _notify_guest_confirmed(r: dict, customer: dict, booking_doc: dict) ->
 
 
 @api.post("/public/{subdomain}/book")
-async def public_create_booking(subdomain: str, body: BookingCreatePublic):
+async def public_create_booking(subdomain: str, body: BookingCreatePublic, request: Request):
+    _check_public_rate_limit(request)
     if not body.accept_terms:
         raise HTTPException(400, "Devi accettare i termini")
     try:
@@ -1391,6 +1393,23 @@ async def whatsapp_test(payload: dict, cur=Depends(get_current_user)):
 # Very small in-memory rate limit for the public status poll (100 calls / minute per process).
 _last_poll_ts: list = []  # timestamps of recent calls
 
+# ==================== PUBLIC RATE LIMITS ====================
+# Per-IP sliding-window rate limiter for public endpoints (60 requests / minute per IP).
+import time as _time
+_public_rate_limits: dict = {}  # ip -> list of timestamps
+
+
+def _check_public_rate_limit(request: Request, limit: int = 60, window: int = 60):
+    """Raise 429 if an IP exceeds `limit` requests in `window` seconds."""
+    ip = request.client.host if request.client else "unknown"
+    now = _time.monotonic()
+    timestamps = _public_rate_limits.setdefault(ip, [])
+    # Purge old entries
+    _public_rate_limits[ip] = [t for t in timestamps if t > now - window]
+    if len(_public_rate_limits[ip]) >= limit:
+        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "Troppe richieste, riprova più tardi")
+    _public_rate_limits[ip].append(now)
+
 
 def _check_poll_rate_limit():
     """Raise 429 if more than 100 calls in the last 60 seconds (process-local)."""
@@ -1497,7 +1516,8 @@ async def public_get_cancel(token: str):
 
 
 @api.post("/public/cancel/{token}")
-async def public_do_cancel(token: str):
+async def public_do_cancel(token: str, request: Request):
+    _check_public_rate_limit(request)
     b = await db.bookings.find_one({"cancel_token": token}, NO_ID)
     if not b:
         raise HTTPException(404, "Not found")
