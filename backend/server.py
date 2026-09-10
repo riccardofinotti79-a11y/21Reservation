@@ -451,7 +451,7 @@ async def delete_opening_hour(oh_id: str, cur=Depends(get_current_user)):
 
 
 # ==================== BOOKING LIMITS ====================
-from models import BookingLimit  # noqa: E402
+from models import BookingLimit, BaseModel  # noqa: E402
 
 
 @api.get("/booking-limits")
