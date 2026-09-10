@@ -267,10 +267,10 @@ export default function PublicBooking() {
                   <h2 className="serif-title text-4xl md:text-5xl mt-3">{t("book.step_service")}</h2>
 
                   <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg mx-auto">
-                    {["lunch", "dinner"].map((sv) => {
+                    {["lunch", "dinner", ...servicesOffered.filter(s => !["lunch","dinner"].includes(s))].map((sv) => {
                       const offered = servicesOffered.includes(sv);
                       const isSel = service === sv;
-                      const Icon = sv === "lunch" ? Sun : Moon;
+                      const Icon = sv === "lunch" ? Sun : sv === "dinner" ? Moon : Sun;
                       return (
                         <button
                           key={sv}
@@ -286,7 +286,7 @@ export default function PublicBooking() {
                         >
                           <Icon size={36} className="mx-auto mb-3" strokeWidth={1.4} />
                           <div className="serif-title text-3xl">
-                            {t(`book.service_${sv}`)}
+                            {t(`book.service_${sv}`) || sv}
                           </div>
                           {!offered && (
                             <div className="text-[10px] font-mono uppercase tracking-widest mt-2 opacity-60">

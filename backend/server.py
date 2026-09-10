@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from datetime import datetime, timedelta, timezone, date as date_cls
 from pathlib import Path
 from typing import List, Optional
@@ -40,7 +41,9 @@ from payments import (  # noqa: E402
 )
 from reminders import send_reminders_for_restaurant  # noqa: E402
 from seed import seed_demo  # noqa: E402
-from whatsapp_service import send_whatsapp  # noqa: E402
+from whatsapp_service import (  # noqa: E402
+    build_confirmation_wa, send_whatsapp, whatsapp_is_configured,
+)
 
 import secrets as _secrets  # noqa: E402
 from fastapi import Request  # noqa: E402
@@ -131,34 +134,62 @@ async def admin_metrics(_=Depends(require_agency_admin)):
     now = utc_now()
     day7 = (now - timedelta(days=7)).date().isoformat()
     day30 = (now - timedelta(days=30)).date().isoformat()
-    restaurants = await db.restaurants.find({}, NO_ID).to_list(2000)
+
+    # Single aggregation to compute all per-restaurant metrics
+    # Each $lookup produces an array of one doc (the per-restaurant aggregate); use
+    # $arrayElemAt + $ifNull to unwrap to a scalar.
+    pipeline = [
+        {"$lookup": {
+            "from": "bookings",
+            "let": {"rid": "$id"},
+            "pipeline": [
+                {"$match": {"$expr": {"$eq": ["$restaurant_id", "$$rid"]}}},
+                {"$group": {
+                    "_id": None,
+                    "total": {"$sum": 1},
+                    "last7": {"$sum": {"$cond": [{"$gte": ["$date", day7]}, 1, 0]}},
+                    "last30": {"$sum": {"$cond": [{"$gte": ["$date", day30]}, 1, 0]}},
+                    "guests": {"$sum": "$persons"},
+                }},
+            ],
+            "as": "bs",
+        }},
+        {"$lookup": {
+            "from": "customers",
+            "let": {"rid": "$id"},
+            "pipeline": [{"$match": {"$expr": {"$eq": ["$restaurant_id", "$$rid"]}}}, {"$count": "n"}],
+            "as": "cust",
+        }},
+        {"$project": {
+            "_id": 0,
+            "id": 1,
+            "name": 1,
+            "subdomain": 1,
+            "status": 1,
+            "bookings_total": {"$ifNull": [{"$arrayElemAt": ["$bs.total", 0]}, 0]},
+            "bookings_7d": {"$ifNull": [{"$arrayElemAt": ["$bs.last7", 0]}, 0]},
+            "bookings_30d": {"$ifNull": [{"$arrayElemAt": ["$bs.last30", 0]}, 0]},
+            "guests_total": {"$ifNull": [{"$arrayElemAt": ["$bs.guests", 0]}, 0]},
+            "customers_count": {"$ifNull": [{"$arrayElemAt": ["$cust.n", 0]}, 0]},
+        }},
+    ]
+
     per_r = []
     total_bookings = 0
     total_30d = 0
-    for r in restaurants:
-        rid = r["id"]
-        b_total = await db.bookings.count_documents({"restaurant_id": rid})
-        b_7d = await db.bookings.count_documents({"restaurant_id": rid, "date": {"$gte": day7}})
-        b_30d = await db.bookings.count_documents({"restaurant_id": rid, "date": {"$gte": day30}})
-        guests_pipe = await db.bookings.aggregate([
-            {"$match": {"restaurant_id": rid}},
-            {"$group": {"_id": None, "g": {"$sum": "$persons"}}},
-        ]).to_list(1)
-        guests_total = int(guests_pipe[0]["g"]) if guests_pipe else 0
-        customers_count = await db.customers.count_documents({"restaurant_id": rid})
-        per_r.append({
-            "id": rid, "name": r["name"], "subdomain": r["subdomain"],
-            "status": r.get("status", "active"),
-            "bookings_total": b_total, "bookings_7d": b_7d, "bookings_30d": b_30d,
-            "guests_total": guests_total, "customers_count": customers_count,
-        })
-        total_bookings += b_total
-        total_30d += b_30d
-    active = sum(1 for r in restaurants if r.get("status", "active") == "active")
-    suspended = len(restaurants) - active
+    active = 0
+    suspended = 0
+    async for doc in db.restaurants.aggregate(pipeline):
+        per_r.append(doc)
+        total_bookings += doc["bookings_total"]
+        total_30d += doc["bookings_30d"]
+        if doc.get("status", "active") == "active":
+            active += 1
+        else:
+            suspended += 1
     return {
         "totals": {
-            "restaurants_total": len(restaurants),
+            "restaurants_total": len(per_r),
             "restaurants_active": active,
             "restaurants_suspended": suspended,
             "bookings_total": total_bookings,
@@ -191,8 +222,8 @@ async def admin_list_restaurants(_=Depends(require_agency_admin)):
 @api.post("/admin/restaurants")
 async def admin_create_restaurant(body: AdminRestaurantCreate, _=Depends(require_agency_admin)):
     sub = body.subdomain.strip().lower()
-    if not sub or " " in sub:
-        raise HTTPException(400, "Subdomain non valido")
+    if not sub or not re.fullmatch(r"[a-z0-9-]+", sub):
+        raise HTTPException(400, "Subdomain non valido (solo lettere minuscole, numeri e trattini)")
     exists = await db.restaurants.find_one({"subdomain": sub})
     if exists:
         raise HTTPException(400, "Subdomain già in uso")
@@ -237,6 +268,8 @@ async def admin_update_restaurant(rid: str, body: AdminRestaurantUpdate, _=Depen
     patch = {k: v for k, v in body.model_dump(exclude_unset=True).items() if v is not None}
     if "subdomain" in patch:
         patch["subdomain"] = patch["subdomain"].strip().lower()
+        if not patch["subdomain"] or not re.fullmatch(r"[a-z0-9-]+", patch["subdomain"]):
+            raise HTTPException(400, "Subdomain non valido (solo lettere minuscole, numeri e trattini)")
         clash = await db.restaurants.find_one({"subdomain": patch["subdomain"], "id": {"$ne": rid}})
         if clash:
             raise HTTPException(400, "Subdomain già in uso")
@@ -276,9 +309,14 @@ async def admin_delete_user(uid: str, cur=Depends(require_agency_admin)):
 
 
 # ==================== SEED ====================
+SEED_ENABLED = os.environ.get("SEED_ENABLED", "false").lower() == "true"
+
+
 @api.post("/seed/demo")
-async def do_seed():
-    """Idempotent demo seeding (safe to call multiple times)."""
+async def do_seed(cur=Depends(get_current_user)):
+    """Idempotent demo seeding — only when SEED_ENABLED=true and user is authenticated."""
+    if not SEED_ENABLED:
+        raise HTTPException(404, "Not found")
     return await seed_demo(db)
 
 
@@ -413,18 +451,25 @@ async def delete_opening_hour(oh_id: str, cur=Depends(get_current_user)):
 
 
 # ==================== CUSTOMERS ====================
+def _normalize_phone(phone: Optional[str]) -> Optional[str]:
+    if not phone:
+        return None
+    return re.sub(r"[\s\-\(\)]", "", phone)
+
+
 async def _find_or_create_customer(
     restaurant_id: str,
     name: Optional[str],
     email: Optional[str],
     phone: Optional[str],
 ) -> dict:
+    norm_phone = _normalize_phone(phone)
     q = {"restaurant_id": restaurant_id}
     or_clauses = []
     if email:
         or_clauses.append({"email": email.lower()})
-    if phone:
-        or_clauses.append({"phone": phone})
+    if norm_phone:
+        or_clauses.append({"phone": norm_phone})
     if or_clauses:
         q["$or"] = or_clauses
         existing = await db.customers.find_one(q, NO_ID)
@@ -434,7 +479,7 @@ async def _find_or_create_customer(
         restaurant_id=restaurant_id,
         name=name or "Ospite",
         email=(email.lower() if email else None),
-        phone=phone,
+        phone=norm_phone,
     )
     d = c.model_dump()
     d["created_at"] = d["created_at"].isoformat()
@@ -449,10 +494,12 @@ async def list_customers(
 ):
     q = {"restaurant_id": cur["restaurant_id"]}
     if search:
+        # Escape regex metacharacters so user input can't inject patterns or crash
+        safe = re.escape(search.strip())
         q["$or"] = [
-            {"name": {"$regex": search, "$options": "i"}},
-            {"email": {"$regex": search, "$options": "i"}},
-            {"phone": {"$regex": search, "$options": "i"}},
+            {"name": {"$regex": safe, "$options": "i"}},
+            {"email": {"$regex": safe, "$options": "i"}},
+            {"phone": {"$regex": safe, "$options": "i"}},
         ]
     docs = await db.customers.find(q, NO_ID).sort("name", 1).to_list(1000)
     return [Customer(**d) for d in docs]
@@ -647,10 +694,12 @@ async def update_booking(bid: str, body: BookingUpdate, cur=Depends(get_current_
     old_status = existing.get("status")
     new_status = upd.get("status")
     if new_status and new_status != old_status:
-        history = existing.get("status_history", []) or []
-        history.append({"status": new_status, "at": utc_now().isoformat(), "by_user_id": cur["user_id"]})
-        upd["status_history"] = history
-    if upd:
+        push_op = {"$push": {"status_history": {"status": new_status, "at": utc_now().isoformat(), "by_user_id": cur["user_id"]}}}
+        set_upd = {k: v for k, v in upd.items() if k != "status_history"}
+        if set_upd:
+            await db.bookings.update_one({"id": bid}, {"$set": set_upd})
+        await db.bookings.update_one({"id": bid}, push_op)
+    elif upd:
         await db.bookings.update_one({"id": bid}, {"$set": upd})
     if new_status and new_status != old_status:
         await _recompute_customer_metrics(existing["customer_id"])
@@ -666,13 +715,19 @@ async def change_status(bid: str, body: BookingStatusUpdate, cur=Depends(get_cur
     doc = await db.bookings.find_one({"id": bid, "restaurant_id": cur["restaurant_id"]}, NO_ID)
     if not doc:
         raise HTTPException(404, "Booking not found")
-    history = doc.get("status_history", []) or []
-    history.append({"status": body.status, "at": utc_now().isoformat(), "by_user_id": cur["user_id"]})
     await db.bookings.update_one(
         {"id": bid},
-        {"$set": {"status": body.status, "status_history": history}},
+        {
+            "$set": {"status": body.status},
+            "$push": {"status_history": {"status": body.status, "at": utc_now().isoformat(), "by_user_id": cur["user_id"]}},
+        },
     )
     await _recompute_customer_metrics(doc["customer_id"])
+    # Notify guest when approved (only on a real transition to accepted)
+    if body.status == "accepted" and (doc.get("status") or "") != "accepted":
+        r = await _get_restaurant(cur["restaurant_id"])
+        c = await db.customers.find_one({"id": doc["customer_id"]}, NO_ID)
+        await _notify_guest_confirmed(r, c, doc)
     # If the booking frees up capacity, offer the seat to the waitlist
     if body.status in ("cancelled", "declined", "no_show"):
         await _try_notify_waitlist(cur["restaurant_id"], doc["date"])
@@ -1029,10 +1084,43 @@ async def public_services(subdomain: str, days_ahead: int = 60):
     return {"services": services}
 
 
+async def _notify_guest_confirmed(r: dict, customer: dict, booking_doc: dict) -> None:
+    """Notify guest their booking is confirmed — WhatsApp if configured, else email."""
+    if not customer:
+        return
+    date = booking_doc.get("date")
+    time = booking_doc.get("time")
+    persons = booking_doc.get("persons")
+    name = customer.get("name", "")
+    restaurant_name = (r or {}).get("name", "")
+    # WhatsApp first when the restaurant has it configured
+    if whatsapp_is_configured(r) and customer.get("phone"):
+        msg = build_confirmation_wa(restaurant_name, name, date, time, persons)
+        try:
+            if await send_whatsapp(r, customer["phone"], msg):
+                return
+        except Exception as e:
+            logger.warning(f"WA confirm failed: {e}")
+    if customer.get("email"):
+        try:
+            html = booking_confirmation_html(
+                restaurant_name, name, date, time, persons, "accepted", (r or {}).get("address"),
+            )
+            await send_email(customer["email"], f"Prenotazione confermata — {restaurant_name}", html)
+        except Exception as e:
+            logger.warning(f"Email confirm failed: {e}")
+
+
 @api.post("/public/{subdomain}/book")
 async def public_create_booking(subdomain: str, body: BookingCreatePublic):
     if not body.accept_terms:
         raise HTTPException(400, "Devi accettare i termini")
+    try:
+        booking_date = date_cls.fromisoformat(body.date)
+    except ValueError:
+        raise HTTPException(400, "Data non valida")
+    if booking_date < date_cls.today():
+        raise HTTPException(400, "Non è possibile prenotare per una data passata")
     r = await _get_restaurant_by_subdomain(subdomain)
     rid = r["id"]
     ohs = await db.opening_hours.find({"restaurant_id": rid}, NO_ID).to_list(500)
@@ -1067,11 +1155,10 @@ async def public_create_booking(subdomain: str, body: BookingCreatePublic):
         and float(r.get("deposit_amount_per_person", 0)) > 0
     )
     deposit_amount = 0.0
-    initial_status = "accepted"
+    initial_status = "pending"  # online bookings require staff approval by default
     deposit_status = None
     if deposit_required:
         deposit_amount = round(body.persons * float(r.get("deposit_amount_per_person", 0)), 2)
-        initial_status = "pending"
         deposit_status = "pending"
 
     booking = Booking(
@@ -1090,6 +1177,7 @@ async def public_create_booking(subdomain: str, body: BookingCreatePublic):
         deposit_amount=deposit_amount,
         deposit_status=deposit_status,
         cancel_token=_secrets.token_urlsafe(24),
+        cancel_token_expires_at=utc_now() + timedelta(days=30),
     )
     doc = _serialize(booking.model_dump())
     await db.bookings.insert_one(doc)
@@ -1114,27 +1202,22 @@ async def public_create_booking(subdomain: str, body: BookingCreatePublic):
             checkout_url = checkout["url"]
         except Exception as e:
             logger.error(f"Stripe checkout create failed: {e}")
-            # Roll back to accepted so booking still stands
+            # Keep booking pending (no deposit) so it still awaits staff approval
             await db.bookings.update_one(
                 {"id": booking.id},
-                {"$set": {"status": "accepted", "deposit_required": False, "deposit_status": None}},
+                {"$set": {"status": "pending", "deposit_required": False, "deposit_status": None}},
             )
 
-    # Confirmation email (only if not awaiting deposit)
-    if not deposit_required:
+    # Staff notification only — guest confirmation is sent upon approval
+    if r.get("email"):
         try:
-            html_guest = booking_confirmation_html(
-                r["name"], body.customer_name, body.date, body.time, body.persons, "accepted", r.get("address"),
+            html_staff = staff_notification_html(
+                r["name"], body.customer_name, body.customer_phone, body.customer_email,
+                body.date, body.time, body.persons, body.guest_message,
             )
-            await send_email(body.customer_email, f"Prenotazione confermata — {r['name']}", html_guest)
-            if r.get("email"):
-                html_staff = staff_notification_html(
-                    r["name"], body.customer_name, body.customer_phone, body.customer_email,
-                    body.date, body.time, body.persons, body.guest_message,
-                )
-                await send_email(r["email"], f"Nuova prenotazione online — {body.customer_name}", html_staff)
+            await send_email(r["email"], f"Nuova prenotazione online da approvare — {body.customer_name}", html_staff)
         except Exception as e:
-            logger.warning(f"Email best-effort failed: {e}")
+            logger.warning(f"Staff email best-effort failed: {e}")
 
     # Reload booking (may have deposit_session_id)
     booking_doc = await db.bookings.find_one({"id": booking.id}, NO_ID)
@@ -1244,9 +1327,29 @@ async def whatsapp_test(payload: dict, cur=Depends(get_current_user)):
 
 
 # ==================== PAYMENTS (DEPOSITS) ====================
+# Very small in-memory rate limit for the public status poll (100 calls / minute per process).
+_last_poll_ts: list = []  # timestamps of recent calls
+
+
+def _check_poll_rate_limit():
+    """Raise 429 if more than 100 calls in the last 60 seconds (process-local)."""
+    import time as _time
+    now = _time.monotonic()
+    _last_poll_ts[:] = [t for t in _last_poll_ts if t > now - 60]
+    if len(_last_poll_ts) >= 100:
+        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "Rate limit exceeded, retry later")
+    _last_poll_ts.append(now)
+
+
 @api.get("/payments/status/{session_id}")
 async def payment_status(session_id: str):
-    """Public: poll deposit status."""
+    """Public: poll deposit status for the booking tied to the Stripe session_id.
+
+    Stays public because the booking flow has no authenticated user at checkout time.
+    Mitigations:  (a) session_id is an unguessable Stripe id, (b) response exposes only
+    payment/bookings status — no PII or booking details, (c) rate-limited.
+    """
+    _check_poll_rate_limit()
     booking = await db.bookings.find_one({"deposit_session_id": session_id}, NO_ID)
     if not booking:
         raise HTTPException(404, "Session not found")
@@ -1256,18 +1359,23 @@ async def payment_status(session_id: str):
             s = retrieve_session(session_id)
             if s.payment_status == "paid" or s.status == "complete":
                 # idempotent update
+                was_pending = (booking.get("deposit_status") or "") != "paid"
                 await db.bookings.update_one(
                     {"id": booking["id"], "deposit_status": {"$ne": "paid"}},
                     {"$set": {"deposit_status": "paid", "status": "accepted"}},
                 )
                 booking = await db.bookings.find_one({"id": booking["id"]}, NO_ID)
+                if was_pending:
+                    r = await _get_restaurant(booking["restaurant_id"])
+                    c = await db.customers.find_one({"id": booking["customer_id"]}, NO_ID)
+                    await _notify_guest_confirmed(r, c, booking)
         except Exception as e:
             logger.warning(f"Stripe status fetch failed: {e}")
     return {
         "session_id": session_id,
         "deposit_status": booking.get("deposit_status"),
         "booking_status": booking.get("status"),
-        "booking_id": booking["id"],
+        # booking_id intentionally excluded — caller already knows the session_id
     }
 
 
@@ -1286,32 +1394,24 @@ async def stripe_webhook(request: Request):
         session_id = obj.get("id")
         await db.bookings.update_one(
             {"deposit_session_id": session_id, "deposit_status": {"$ne": "paid"}},
-            {"$set": {
-                "deposit_status": "paid",
-                "status": "accepted",
-                "status_history": [
-                    *(await db.bookings.find_one({"deposit_session_id": session_id}, NO_ID) or {}).get("status_history", []),
-                    {"status": "accepted", "at": utc_now().isoformat()},
-                ],
-            }},
+            {
+                "$set": {"deposit_status": "paid", "status": "accepted"},
+                "$push": {"status_history": {"status": "accepted", "at": utc_now().isoformat()}},
+            },
         )
-        # Best-effort email
+        # Best-effort notify guest that deposit paid + booking confirmed
         b = await db.bookings.find_one({"deposit_session_id": session_id}, NO_ID)
         if b:
             r = await _get_restaurant(b["restaurant_id"])
             c = await db.customers.find_one({"id": b["customer_id"]}, NO_ID)
-            if c and c.get("email"):
-                try:
-                    html = booking_confirmation_html(
-                        r["name"], c["name"], b["date"], b["time"], b["persons"], "accepted", r.get("address"),
-                    )
-                    await send_email(c["email"], f"Deposito ricevuto — {r['name']}", html)
-                except Exception:
-                    pass
+            await _notify_guest_confirmed(r, c, b)
     elif et in ("checkout.session.expired", "checkout.session.async_payment_failed"):
         await db.bookings.update_one(
             {"deposit_session_id": obj.get("id")},
-            {"$set": {"deposit_status": "failed", "status": "cancelled"}},
+            {
+                "$set": {"deposit_status": "failed", "status": "cancelled"},
+                "$push": {"status_history": {"status": "cancelled", "at": utc_now().isoformat(), "by_user_id": "stripe_webhook"}},
+            },
         )
     return {"status": "ok"}
 
@@ -1342,11 +1442,18 @@ async def public_do_cancel(token: str):
         raise HTTPException(404, "Not found")
     if b["status"] == "cancelled":
         return {"ok": True, "already": True}
-    history = b.get("status_history", []) or []
-    history.append({"status": "cancelled", "at": utc_now().isoformat()})
+    # Reject cancellation if token has expired
+    expires_at = b.get("cancel_token_expires_at")
+    if expires_at:
+        exp_dt = datetime.fromisoformat(expires_at) if isinstance(expires_at, str) else expires_at
+        if exp_dt.replace(tzinfo=timezone.utc) < utc_now():
+            raise HTTPException(410, "Il link di cancellazione è scaduto")
     await db.bookings.update_one(
         {"id": b["id"]},
-        {"$set": {"status": "cancelled", "status_history": history}},
+        {
+            "$set": {"status": "cancelled"},
+            "$push": {"status_history": {"status": "cancelled", "at": utc_now().isoformat()}},
+        },
     )
     await _recompute_customer_metrics(b["customer_id"])
     return {"ok": True}
@@ -1382,32 +1489,71 @@ async def public_config():
 # Mount router
 app.include_router(api)
 
+# CORS: require explicit whitelist. Never fall back to "*" in production.
+# Comma-separated list, e.g. CORS_ORIGINS=https://app.example.com,https://www.example.com
+_cors_origins = os.environ.get("CORS_ORIGINS", "").strip()
+if not _cors_origins:
+    # Refuse to run unconfigured: wildcard + credentials is a security hole.
+    raise RuntimeError(
+        "CORS_ORIGINS env var is required (comma-separated allowed origins). "
+        "Set it before starting the server."
+    )
+_cors_origins_list = [o.strip() for o in _cors_origins.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get("CORS_ORIGINS", "*").split(","),
+    allow_origins=_cors_origins_list,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
+async def _ensure_indexes(db):
+    """Create the indexes the app relies on for query performance and uniqueness."""
+    await db.restaurants.create_index("subdomain", unique=True)
+    await db.restaurants.create_index("id", unique=True)
+    await db.users.create_index("email", unique=True)
+    await db.users.create_index("id", unique=True)
+    await db.users.create_index("restaurant_id")
+    await db.areas.create_index("restaurant_id")
+    await db.tables.create_index("restaurant_id")
+    await db.tables.create_index("area_id")
+    await db.opening_hours.create_index("restaurant_id")
+    await db.customers.create_index("restaurant_id")
+    await db.customers.create_index("id", unique=True)
+    await db.bookings.create_index([("restaurant_id", 1), ("date", 1)])
+    await db.bookings.create_index([("restaurant_id", 1), ("customer_id", 1)])
+    await db.bookings.create_index("id", unique=True)
+    await db.bookings.create_index("deposit_session_id", sparse=True)
+    await db.bookings.create_index("cancel_token", sparse=True)
+    await db.waitlist.create_index([("restaurant_id", 1), ("date", 1), ("status", 1)])
+    await db.booking_limits.create_index("opening_hour_id")
+
+
 @app.on_event("startup")
 async def on_startup():
-    # Auto-seed demo on cold start
     try:
-        await seed_demo(db)
+        await _ensure_indexes(db)
     except Exception as e:
-        logger.warning(f"Auto-seed skipped: {e}")
+        logger.warning(f"Index creation failed: {e}")
+    # Auto-seed demo on cold start — only when SEED_ENABLED=true
+    if SEED_ENABLED:
+        try:
+            await seed_demo(db)
+        except Exception as e:
+            logger.warning(f"Auto-seed skipped: {e}")
     # Seed agency admin from env (idempotent)
     try:
         await _seed_agency_admin(db)
     except Exception as e:
         logger.warning(f"Agency admin seed skipped: {e}")
-    # One-off idempotent repair
-    try:
-        await _repair_data(db)
-    except Exception as e:
-        logger.warning(f"Repair pass skipped: {e}")
+    # One-off idempotent repair — skip in production unless explicitly enabled
+    if os.environ.get("RUN_REPAIR_ON_BOOT", "").lower() in ("1", "true", "yes"):
+        try:
+            await _repair_data(db)
+        except Exception as e:
+            logger.warning(f"Repair pass skipped: {e}")
 
 
 async def _seed_agency_admin(db):
@@ -1416,7 +1562,10 @@ async def _seed_agency_admin(db):
     AGENCY_ADMIN_EMAIL / AGENCY_ADMIN_PASSWORD; falls back to demo values if unset.
     """
     email = (os.environ.get("AGENCY_ADMIN_EMAIL") or "admin@21agency.com").lower()
-    password = os.environ.get("AGENCY_ADMIN_PASSWORD") or "agency123"
+    password = os.environ.get("AGENCY_ADMIN_PASSWORD")
+    if not password:
+        logger.warning("AGENCY_ADMIN_PASSWORD not set — using insecure default. Set this env var in production.")
+        password = "agency123"
     existing = await db.users.find_one({"email": email})
     if existing:
         # Ensure role/restaurant fields are correct even if the doc pre-existed with wrong shape

@@ -10,7 +10,7 @@ import stripe
 
 logger = logging.getLogger(__name__)
 
-stripe.api_key = os.environ.get("STRIPE_SECRET_KEY") or "sk_test_emergent"
+stripe.api_key = os.environ.get("STRIPE_SECRET_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 
 
@@ -26,6 +26,8 @@ def create_deposit_checkout(
 
     Returns dict with session_id, url, amount, currency.
     """
+    if not stripe.api_key:
+        raise ValueError("STRIPE_SECRET_KEY not configured")
     unit_amount = int(round(float(amount_eur) * 100))
     if unit_amount <= 0:
         raise ValueError("Deposit amount must be > 0")

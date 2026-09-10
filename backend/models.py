@@ -331,6 +331,7 @@ class Booking(BaseModel):
     # Reminders
     reminder_sent_at: Optional[str] = None
     cancel_token: Optional[str] = None
+    cancel_token_expires_at: Optional[datetime] = None  # token valid until this UTC datetime
     created_at: datetime = Field(default_factory=utc_now)
 
 

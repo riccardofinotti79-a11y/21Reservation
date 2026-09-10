@@ -9,8 +9,8 @@ export default function Login() {
   const { t } = useI18n();
   const { login } = useAuth();
   const nav = useNavigate();
-  const [email, setEmail] = useState("owner@demo.com");
-  const [password, setPassword] = useState("demo1234");
+  const [email, setEmail] = useState(process.env.NODE_ENV === "development" ? "owner@demo.com" : "");
+  const [password, setPassword] = useState(process.env.NODE_ENV === "development" ? "demo1234" : "");
   const [busy, setBusy] = useState(false);
 
   const submit = async (e) => {
