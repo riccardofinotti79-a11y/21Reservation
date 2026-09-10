@@ -1,4 +1,4 @@
-"""Transactional email through Emergent managed proxy (Resend)."""
+"""Transactional email via Resend REST API."""
 import logging
 import os
 from typing import Optional
@@ -7,9 +7,9 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-EMAIL_BASE_URL = "https://integrations.emergentagent.com"
-EMAIL_KEY = os.environ["EMERGENT_EMAIL_KEY"]
-EMAIL_FROM_NAME = os.environ["EMAIL_FROM_NAME"]
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+EMAIL_FROM = os.environ.get("EMAIL_FROM", "21Reservation <onboarding@resend.dev>")
+RESEND_API_URL = "https://api.resend.com/emails"
 
 
 async def send_email(
@@ -18,26 +18,32 @@ async def send_email(
     html_content: str,
     reply_to: Optional[str] = None,
 ) -> bool:
+    if not RESEND_API_KEY:
+        logger.warning(f"Email skipped (RESEND_API_KEY not set) to {to_email}")
+        return False
     payload = {
+        "from": EMAIL_FROM,
         "to": [to_email],
         "subject": subject,
         "html": html_content,
-        "from_name": EMAIL_FROM_NAME,
     }
     if reply_to:
-        payload["contact_email"] = reply_to
+        payload["reply_to"] = reply_to
     try:
         async with httpx.AsyncClient(timeout=20) as client:
             resp = await client.post(
-                f"{EMAIL_BASE_URL}/api/v1/email/send",
-                headers={"X-Email-Key": EMAIL_KEY},
+                RESEND_API_URL,
+                headers={"Authorization": f"Bearer {RESEND_API_KEY}"},
                 json=payload,
             )
-        resp.raise_for_status()
-        logger.info(f"Email sent to {to_email}: {resp.json().get('id')}")
+        if resp.status_code >= 400:
+            logger.error(f"Resend email failed [{resp.status_code}] to {to_email}: {resp.text[:300]}")
+            return False
+        email_id = resp.json().get("id", "")
+        logger.info(f"Resend email sent to {to_email} id={email_id}")
         return True
     except Exception as e:
-        logger.error(f"Email send failed to {to_email}: {e}")
+        logger.error(f"Resend email exception to {to_email}: {e}")
         return False
 
 

@@ -98,7 +98,7 @@ Stack: FastAPI + MongoDB + React/Tailwind + JWT auth + 5s polling + Resend email
 - `/payment/success` and `/payment/cancel` — Stripe redirect handlers.
 
 ### Cron
-- `.emergent/crons.yml` schedules `POST /api/cron/send-reminders` daily at 10:00 Europe/Rome.
+- Schedule `POST /api/cron/send-reminders` daily at 10:00 Europe/Rome via deployment platform cron job (e.g. Render Cron Job, GitHub Actions).
 
 ### Verified
 - Backend: 12/12 iter-2 pytest + 28/28 iter-1 all pass.
