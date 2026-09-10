@@ -450,6 +450,67 @@ async def delete_opening_hour(oh_id: str, cur=Depends(get_current_user)):
     return {"deleted": True}
 
 
+# ==================== BOOKING LIMITS ====================
+from models import BookingLimit  # noqa: E402
+
+
+@api.get("/booking-limits")
+async def list_booking_limits(cur=Depends(get_current_user)):
+    """List all booking limits for this restaurant, enriched with opening hour info."""
+    ohs = await db.opening_hours.find({"restaurant_id": cur["restaurant_id"]}, NO_ID).to_list(500)
+    oh_map = {oh["id"]: oh for oh in ohs}
+    limits = await db.booking_limits.find(
+        {"opening_hour_id": {"$in": list(oh_map.keys())}},
+        NO_ID,
+    ).to_list(500)
+    result = []
+    for lim in limits:
+        oh = oh_map.get(lim["opening_hour_id"], {})
+        result.append({
+            **lim,
+            "day_of_week": oh.get("day_of_week"),
+            "service_type": oh.get("service_type"),
+            "open_time": oh.get("open_time"),
+            "close_time": oh.get("close_time"),
+        })
+    return result
+
+
+class BookingLimitUpdate(BaseModel):
+    max_bookings_total: Optional[int] = None
+    max_guests_total: Optional[int] = None
+    max_bookings_per_slot: Optional[int] = None
+    max_guests_per_slot: Optional[int] = None
+
+
+@api.post("/booking-limits")
+async def upsert_booking_limit(opening_hour_id: str, body: BookingLimitUpdate, cur=Depends(get_current_user)):
+    """Create or update a booking limit for a specific opening hour."""
+    oh = await db.opening_hours.find_one({"id": opening_hour_id, "restaurant_id": cur["restaurant_id"]}, NO_ID)
+    if not oh:
+        raise HTTPException(404, "Opening hour not found")
+    update_fields = {k: v for k, v in body.model_dump(exclude_unset=True).items() if v is not None}
+    if not update_fields:
+        raise HTTPException(400, "Nessun campo fornito")
+    existing = await db.booking_limits.find_one({"opening_hour_id": opening_hour_id}, NO_ID)
+    if existing:
+        await db.booking_limits.update_one({"opening_hour_id": opening_hour_id}, {"$set": update_fields})
+        doc = {**existing, **update_fields}
+    else:
+        bl = BookingLimit(opening_hour_id=opening_hour_id, **update_fields)
+        doc = bl.model_dump()
+        await db.booking_limits.insert_one(doc)
+    return doc
+
+
+@api.delete("/booking-limits/{limit_id}")
+async def delete_booking_limit(limit_id: str, cur=Depends(get_current_user)):
+    r = await db.booking_limits.delete_one({"id": limit_id})
+    if r.deleted_count == 0:
+        raise HTTPException(404, "Booking limit not found")
+    return {"deleted": True}
+
+
 # ==================== CUSTOMERS ====================
 def _normalize_phone(phone: Optional[str]) -> Optional[str]:
     if not phone:

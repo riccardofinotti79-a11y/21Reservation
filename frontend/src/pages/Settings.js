@@ -38,6 +38,9 @@ export default function Settings() {
       whatsapp_twilio_auth_token: data.whatsapp_twilio_auth_token || "",
       whatsapp_meta_phone_id: data.whatsapp_meta_phone_id || "",
       whatsapp_meta_access_token: data.whatsapp_meta_access_token || "",
+      deposit_enabled: !!data.deposit_enabled,
+      deposit_threshold_persons: data.deposit_threshold_persons ?? 8,
+      deposit_amount_per_person: data.deposit_amount_per_person ?? 20,
     });
   }, []);
   useEffect(() => { load(); }, [load]);
@@ -173,6 +176,22 @@ export default function Settings() {
           <Field label="Ore di anticipo">
             <input data-testid="s-reminder-hours" type="number" min={1} max={168} disabled={!isOwner || !form.reminder_enabled}
                    value={form.reminder_lead_hours} onChange={(e) => set("reminder_lead_hours", Number(e.target.value))} className="input" />
+          </Field>
+        </Section>
+
+        <Section title="Depositi" subtitle="Richiedi un anticipo online per prenotazioni con molti ospiti.">
+          <label className="flex items-center gap-2 text-sm md:col-span-2">
+            <input data-testid="s-deposit-enabled" type="checkbox" disabled={!isOwner}
+                   checked={form.deposit_enabled} onChange={(e) => set("deposit_enabled", e.target.checked)} />
+            Abilita deposito prenotazione
+          </label>
+          <Field label="Soglia ospiti (deposito richiesto da)">
+            <input data-testid="s-deposit-threshold" type="number" min={1} disabled={!isOwner || !form.deposit_enabled}
+                   value={form.deposit_threshold_persons} onChange={(e) => set("deposit_threshold_persons", Number(e.target.value))} className="input" />
+          </Field>
+          <Field label="Importo per ospite (EUR)">
+            <input data-testid="s-deposit-amount" type="number" min={0} step={0.5} disabled={!isOwner || !form.deposit_enabled}
+                   value={form.deposit_amount_per_person} onChange={(e) => set("deposit_amount_per_person", Number(e.target.value))} className="input" />
           </Field>
         </Section>
 
