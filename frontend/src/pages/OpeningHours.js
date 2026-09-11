@@ -20,12 +20,14 @@ function emptyDraft() {
   };
 }
 
+// Suggested defaults for a fresh table: lunch 12:00–14:30, dinner 19:30–23:00.
 function emptyWeek() {
   return Array.from({ length: 7 }, () => ({
-    lunchOpen: "",
-    lunchClose: "",
-    dinnerOpen: "",
-    dinnerClose: "",
+    lunchOpen: "12:00",
+    lunchClose: "14:30",
+    dinnerOpen: "19:30",
+    dinnerClose: "23:00",
+    closed: false,
   }));
 }
 
@@ -44,12 +46,39 @@ function buildWeek(items) {
       week[h.weekday].dinnerClose = h.close_time || "";
     }
   });
+  week.forEach((d, i) => {
+    d.closed = !items.some((h) => h.weekday === i && (h.service_type === "lunch" || h.service_type === "dinner"));
+  });
   return week;
 }
 
 function parseIntSafe(v, dflt) {
   const n = Number(v);
   return Number.isFinite(n) && n > 0 ? Math.round(n) : dflt;
+}
+
+const HOUR_VALUES = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
+const MINUTE_STEPS = ["00", "30"];
+
+// Time picker built from two selects: hour (00–23) + minute (only 00 / 30).
+// Non-step minute values already saved (legacy) are kept as an extra option.
+function TimeField({ value = "", onChange, testId }) {
+  const parts = (value || "").split(":");
+  const h = parts[0] || "12";
+  const m = parts[1] || "00";
+  const minutes = MINUTE_STEPS.includes(m) ? MINUTE_STEPS : [m, ...MINUTE_STEPS];
+  return (
+    <div className="flex gap-1" data-testid={testId}>
+      <select value={h} onChange={(e) => onChange(`${e.target.value}:${m}`)}
+              className="w-full border border-zinc-200 dark:border-zinc-800 rounded-md px-1 py-1.5 bg-white dark:bg-zinc-900">
+        {HOUR_VALUES.map((hh) => <option key={hh} value={hh}>{hh}</option>)}
+      </select>
+      <select value={m} onChange={(e) => onChange(`${h}:${e.target.value}`)}
+              className="w-full border border-zinc-200 dark:border-zinc-800 rounded-md px-1 py-1.5 bg-white dark:bg-zinc-900">
+        {minutes.map((mm) => <option key={mm} value={mm}>{mm}</option>)}
+      </select>
+    </div>
+  );
 }
 
 export default function OpeningHours() {
@@ -97,6 +126,13 @@ export default function OpeningHours() {
         { service_type: "lunch", title: t("book.service_lunch"), open: d.lunchOpen, close: d.lunchClose },
         { service_type: "dinner", title: t("book.service_dinner"), open: d.dinnerOpen, close: d.dinnerClose },
       ];
+      if (d.closed) {
+        slots.forEach((s) => {
+          const existing = weekly.find((h) => h.weekday === weekday && h.service_type === s.service_type);
+          if (existing) jobs.push(api.delete(`/opening-hours/${existing.id}`));
+        });
+        return;
+      }
       slots.forEach((s) => {
         const existing = weekly.find((h) => h.weekday === weekday && h.service_type === s.service_type);
         const filled = !!s.open && !!s.close;
@@ -190,6 +226,7 @@ export default function OpeningHours() {
                       <th></th>
                       <th colSpan={2} className="text-left label-eyebrow px-1 py-1">{t("book.service_lunch")}</th>
                       <th colSpan={2} className="text-left label-eyebrow px-1 py-1">{t("book.service_dinner")}</th>
+                      <th></th>
                     </tr>
                     <tr>
                       <th></th>
@@ -197,31 +234,25 @@ export default function OpeningHours() {
                       <th className="text-left px-1 py-1 font-normal text-zinc-500 dark:text-zinc-400">{t("hours.close")}</th>
                       <th className="text-left px-1 py-1 font-normal text-zinc-500 dark:text-zinc-400">{t("hours.open")}</th>
                       <th className="text-left px-1 py-1 font-normal text-zinc-500 dark:text-zinc-400">{t("hours.close")}</th>
+                      <th></th>
                     </tr>
                   </thead>
                   <tbody>
                     {WEEKDAY_NAMES[lang].map((name, i) => (
                       <tr key={i} className="border-t border-zinc-100 dark:border-zinc-800">
                         <td className="py-1.5 pr-3 font-medium whitespace-nowrap">{name}</td>
-                        <td className="px-1 py-1.5">
-                          <input data-testid={`hours-week-${i}-lunch-open`} type="time" value={week[i].lunchOpen}
-                                 onChange={setDay(i, "lunchOpen")}
-                                 className="w-full border border-zinc-200 dark:border-zinc-800 rounded-md px-2 py-1.5" />
-                        </td>
-                        <td className="px-1 py-1.5">
-                          <input data-testid={`hours-week-${i}-lunch-close`} type="time" value={week[i].lunchClose}
-                                 onChange={setDay(i, "lunchClose")}
-                                 className="w-full border border-zinc-200 dark:border-zinc-800 rounded-md px-2 py-1.5" />
-                        </td>
-                        <td className="px-1 py-1.5">
-                          <input data-testid={`hours-week-${i}-dinner-open`} type="time" value={week[i].dinnerOpen}
-                                 onChange={setDay(i, "dinnerOpen")}
-                                 className="w-full border border-zinc-200 dark:border-zinc-800 rounded-md px-2 py-1.5" />
-                        </td>
-                        <td className="px-1 py-1.5">
-                          <input data-testid={`hours-week-${i}-dinner-close`} type="time" value={week[i].dinnerClose}
-                                 onChange={setDay(i, "dinnerClose")}
-                                 className="w-full border border-zinc-200 dark:border-zinc-800 rounded-md px-2 py-1.5" />
+                        {["lunchOpen", "lunchClose", "dinnerOpen", "dinnerClose"].map((f) => (
+                          <td key={f} className="px-1 py-1.5">
+                            <TimeField testId={`hours-week-${i}-${f}`} value={week[i][f]}
+                                       onChange={setDay(i, f)} />
+                          </td>
+                        ))}
+                        <td className="px-1 py-1.5 whitespace-nowrap">
+                          <label className={`flex items-center gap-1.5 text-xs ${week[i].closed ? "text-red-600" : "text-zinc-500"}`}>
+                            <input type="checkbox" checked={week[i].closed}
+                                   onChange={(e) => setWeek(prev => prev.map((d, j) => j === i ? { ...d, closed: e.target.checked } : d))} />
+                            Chiuso
+                          </label>
                         </td>
                       </tr>
                     ))}
@@ -242,7 +273,7 @@ export default function OpeningHours() {
                          className="w-full border border-zinc-200 dark:border-zinc-800 rounded-md px-2 py-1.5" />
                 </div>
               </div>
-              <p className="text-xs text-zinc-500 mt-2">Giorni vuoti = fascia chiusa. Intervallo e durata si applicano a tutte le fasce.</p>
+              <p className="text-xs text-zinc-500 mt-2">Orari già suggeriti, modificali e spunta "Chiuso" per il giorno senza fasce. Intervallo e durata si applicano a tutte le fasce. Minuti disponibili: 00 e 30.</p>
               {weekly.some((h) => !h.service_type) && (
                 <p className="text-xs text-amber-600 mt-2">
                   Trovate righe settimanali senza servizio (dalla vecchia interfaccia): il salvataggio non le tocca.
