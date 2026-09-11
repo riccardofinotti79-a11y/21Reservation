@@ -40,7 +40,7 @@ services:
   - type: static_site
     name: 21reservation-frontend
     staticPublishPath: frontend/build
-    buildCommand: cd frontend && yarn install --frozen-lockfile && yarn build
+    buildCommand: cd frontend && npm install && npm run build
     envVars:
       - key: REACT_APP_BACKEND_URL
         sync: false
