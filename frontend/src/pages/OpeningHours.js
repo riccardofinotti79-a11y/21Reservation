@@ -185,6 +185,26 @@ export default function OpeningHours() {
   const setDay = (weekday, field) => (e) =>
     setWeek(week.map((d, i) => (i === weekday ? { ...d, [field]: e.target.value } : d)));
 
+  // Shift one time column (all days) by delta minutes. Closed days keep their state.
+  const nudgeColumn = (field, deltaMin) => {
+    setWeek(prev => prev.map((d) => {
+      if (d.closed || !d[field]) return d;
+      const [h, m] = d[field].split(":").map(Number);
+      const total = (h * 60 + m + deltaMin + 24 * 60) % (24 * 60);
+      return {
+        ...d,
+        [field]: `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`,
+      };
+    }));
+  };
+
+  const nudgeBtn = (field, delta) => (
+    <button type="button" onClick={() => nudgeColumn(field, delta)}
+            className="px-1.5 py-0.5 rounded border border-zinc-200 dark:border-zinc-800 text-[11px] text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+      {delta > 0 ? "+" : ""}{delta}
+    </button>
+  );
+
   const remove = async (id) => {
     if (!window.confirm("Eliminare?")) return;
     try { await api.delete(`/opening-hours/${id}`); refresh(); toast.success("Eliminato"); }
@@ -230,10 +250,22 @@ export default function OpeningHours() {
                     </tr>
                     <tr>
                       <th></th>
-                      <th className="text-left px-1 py-1 font-normal text-zinc-500 dark:text-zinc-400">{t("hours.open")}</th>
-                      <th className="text-left px-1 py-1 font-normal text-zinc-500 dark:text-zinc-400">{t("hours.close")}</th>
-                      <th className="text-left px-1 py-1 font-normal text-zinc-500 dark:text-zinc-400">{t("hours.open")}</th>
-                      <th className="text-left px-1 py-1 font-normal text-zinc-500 dark:text-zinc-400">{t("hours.close")}</th>
+                      <th className="text-left px-1 py-1 font-normal text-zinc-500 dark:text-zinc-400">
+                        {t("hours.open")}
+                        <div className="flex gap-1 mt-0.5">{nudgeBtn("lunchOpen", -30)}{nudgeBtn("lunchOpen", 30)}</div>
+                      </th>
+                      <th className="text-left px-1 py-1 font-normal text-zinc-500 dark:text-zinc-400">
+                        {t("hours.close")}
+                        <div className="flex gap-1 mt-0.5">{nudgeBtn("lunchClose", -30)}{nudgeBtn("lunchClose", 30)}</div>
+                      </th>
+                      <th className="text-left px-1 py-1 font-normal text-zinc-500 dark:text-zinc-400">
+                        {t("hours.open")}
+                        <div className="flex gap-1 mt-0.5">{nudgeBtn("dinnerOpen", -30)}{nudgeBtn("dinnerOpen", 30)}</div>
+                      </th>
+                      <th className="text-left px-1 py-1 font-normal text-zinc-500 dark:text-zinc-400">
+                        {t("hours.close")}
+                        <div className="flex gap-1 mt-0.5">{nudgeBtn("dinnerClose", -30)}{nudgeBtn("dinnerClose", 30)}</div>
+                      </th>
                       <th></th>
                     </tr>
                   </thead>
@@ -273,7 +305,7 @@ export default function OpeningHours() {
                          className="w-full border border-zinc-200 dark:border-zinc-800 rounded-md px-2 py-1.5" />
                 </div>
               </div>
-              <p className="text-xs text-zinc-500 mt-2">Orari già suggeriti, modificali e spunta "Chiuso" per il giorno senza fasce. Intervallo e durata si applicano a tutte le fasce. Minuti disponibili: 00 e 30.</p>
+              <p className="text-xs text-zinc-500 mt-2">Orari già suggeriti, modificali e spunta "Chiuso" per il giorno senza fasce. I pulsanti +30 / −30 sull'header spostano una colonna intera (tutti i giorni insieme). Intervallo e durata si applicano a tutte le fasce. Minuti disponibili: 00 e 30.</p>
               {weekly.some((h) => !h.service_type) && (
                 <p className="text-xs text-amber-600 mt-2">
                   Trovate righe settimanali senza servizio (dalla vecchia interfaccia): il salvataggio non le tocca.
