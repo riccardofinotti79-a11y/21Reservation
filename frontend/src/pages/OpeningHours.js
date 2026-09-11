@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from "react";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Pencil, X } from "lucide-react";
 import api from "../api";
 import usePolling from "../usePolling";
 import { useI18n, WEEKDAY_NAMES } from "../i18n";
@@ -211,6 +211,100 @@ export default function OpeningHours() {
     catch { toast.error("Errore"); }
   };
 
+  const [editingHour, setEditingHour] = useState(null);
+
+  const saveEdited = async (h) => {
+    const isExc = !!h.specific_date;
+    const payload = {
+      weekday: isExc ? null : Number(editingHour.weekday),
+      specific_date: isExc ? editingHour.specific_date : null,
+      open_time: editingHour.open_time,
+      close_time: editingHour.close_time,
+      title: editingHour.title || "",
+      service_type: h.service_type || null,
+      slot_interval_minutes: parseIntSafe(editingHour.slot_interval_minutes, 15),
+      default_duration_minutes: parseIntSafe(editingHour.default_duration_minutes, 120),
+      duration_rules: h.duration_rules || [],
+      is_closed: isExc ? editingHour.is_closed : false,
+      requires_payment: h.requires_payment ?? false,
+      payment_amount: h.payment_amount ?? 0,
+    };
+    try {
+      await api.patch(`/opening-hours/${h.id}`, payload);
+      toast.success("Modificato");
+      setEditingHour(null);
+      refresh();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Errore");
+    }
+  };
+
+  const inlineEditor = (h) => {
+    const isExc = !!h.specific_date;
+    return (
+      <div key={h.id} className="p-4 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/40 space-y-3" data-testid={`hours-inline-edit-${h.id}`}>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          {isExc ? (
+            <div>
+              <label className="label-eyebrow block mb-1">{t("hours.specific_date")}</label>
+              <input type="date" value={editingHour.specific_date}
+                     onChange={(e) => setEditingHour({ ...editingHour, specific_date: e.target.value })}
+                     className="w-full border border-zinc-200 dark:border-zinc-800 rounded-md px-2 py-1.5" />
+            </div>
+          ) : (
+            <div>
+              <label className="label-eyebrow block mb-1">{t("hours.weekday")}</label>
+              <select value={editingHour.weekday} onChange={(e) => setEditingHour({ ...editingHour, weekday: Number(e.target.value) })}
+                      className="w-full border border-zinc-200 dark:border-zinc-800 rounded-md px-2 py-1.5 bg-white dark:bg-zinc-900">
+                {WEEKDAY_NAMES[lang].map((n, i) => <option key={i} value={i}>{n}</option>)}
+              </select>
+            </div>
+          )}
+          <div>
+            <label className="label-eyebrow block mb-1">{t("hours.open")}</label>
+            <TimeField value={editingHour.open_time} onChange={(v) => setEditingHour({ ...editingHour, open_time: v })} />
+          </div>
+          <div>
+            <label className="label-eyebrow block mb-1">{t("hours.close")}</label>
+            <TimeField value={editingHour.close_time} onChange={(v) => setEditingHour({ ...editingHour, close_time: v })} />
+          </div>
+          <div>
+            <label className="label-eyebrow block mb-1">Titolo</label>
+            <input placeholder="Cena / Pranzo…" value={editingHour.title || ""}
+                   onChange={(e) => setEditingHour({ ...editingHour, title: e.target.value })}
+                   className="w-full border border-zinc-200 dark:border-zinc-800 rounded-md px-2 py-1.5" />
+          </div>
+        </div>
+        <div className="flex gap-2 flex-wrap items-center">
+          <label className="flex items-center gap-1.5 text-xs">
+            {t("hours.interval")}
+            <input type="text" inputMode="numeric" value={editingHour.slot_interval_minutes}
+                   onChange={(e) => setEditingHour({ ...editingHour, slot_interval_minutes: e.target.value })}
+                   className="w-16 border border-zinc-200 dark:border-zinc-800 rounded-md px-2 py-1" />
+          </label>
+          <label className="flex items-center gap-1.5 text-xs">
+            {t("hours.default_duration")}
+            <input type="number" min={30} step={15} value={editingHour.default_duration_minutes}
+                   onChange={(e) => setEditingHour({ ...editingHour, default_duration_minutes: e.target.value })}
+                   className="w-20 border border-zinc-200 dark:border-zinc-800 rounded-md px-2 py-1" />
+          </label>
+          {isExc && (
+            <label className="flex items-center gap-1.5 text-xs">
+              <input type="checkbox" checked={editingHour.is_closed}
+                     onChange={(e) => setEditingHour({ ...editingHour, is_closed: e.target.checked })} />
+              {t("hours.is_closed")}
+            </label>
+          )}
+          <div className="flex items-center gap-2 ml-auto">
+            <button data-testid="btn-save-hour-edit" onClick={() => saveEdited(h)}
+                    className="px-3 py-1.5 rounded-md bg-zinc-900 text-white text-sm">{t("common.save")}</button>
+            <button onClick={() => setEditingHour(null)} className="p-1.5 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700"><X size={14} /></button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="p-8 max-w-[1200px] mx-auto">
       <div className="flex items-end justify-between mb-8 flex-wrap gap-4">
@@ -371,19 +465,25 @@ export default function OpeningHours() {
           <div className="p-4 border-b border-zinc-100 dark:border-zinc-800 label-eyebrow">{t("hours.title")}</div>
           {weekly.length === 0 && <div className="p-8 text-center text-zinc-400 dark:text-zinc-500">—</div>}
           {weekly.sort((a, b) => (a.weekday - b.weekday) || a.open_time.localeCompare(b.open_time)).map((h) => (
+            editingHour?.id === h.id ? inlineEditor(h) : (
             <div key={h.id} className="flex items-center justify-between p-4 border-b border-zinc-100 dark:border-zinc-800 last:border-b-0">
               <div>
                 <div className="text-sm font-medium">{WEEKDAY_NAMES[lang][h.weekday]}{h.title ? ` · ${h.title}` : ""}</div>
                 <div className="text-xs text-zinc-500 dark:text-zinc-400 dark:text-zinc-500 font-mono">{h.open_time} → {h.close_time} · slot {h.slot_interval_minutes}min · {h.default_duration_minutes}min</div>
               </div>
-              <button onClick={() => remove(h.id)} className="p-1.5 rounded hover:bg-red-50 text-red-700"><Trash2 size={14} /></button>
+              <div className="flex items-center gap-1">
+                <button data-testid={`btn-edit-hour-${h.weekday}`} onClick={() => setEditingHour({ ...h, slot_interval_minutes: String(h.slot_interval_minutes), default_duration_minutes: h.default_duration_minutes })} className="p-1.5 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800"><Pencil size={14} /></button>
+                <button onClick={() => remove(h.id)} className="p-1.5 rounded hover:bg-red-50 text-red-700"><Trash2 size={14} /></button>
+              </div>
             </div>
+            )
           ))}
         </div>
         <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden">
           <div className="p-4 border-b border-zinc-100 dark:border-zinc-800 label-eyebrow">{t("hours.exceptions")}</div>
           {exceptions.length === 0 && <div className="p-8 text-center text-zinc-400 dark:text-zinc-500">—</div>}
           {exceptions.sort((a, b) => a.specific_date.localeCompare(b.specific_date)).map((h) => (
+            editingHour?.id === h.id ? inlineEditor(h) : (
             <div key={h.id} className="flex items-center justify-between p-4 border-b border-zinc-100 dark:border-zinc-800 last:border-b-0">
               <div>
                 <div className="text-sm font-medium">{h.specific_date}{h.title ? ` · ${h.title}` : ""}</div>
@@ -391,8 +491,12 @@ export default function OpeningHours() {
                   {h.is_closed ? "Chiuso" : `${h.open_time} → ${h.close_time}`}
                 </div>
               </div>
-              <button onClick={() => remove(h.id)} className="p-1.5 rounded hover:bg-red-50 text-red-700"><Trash2 size={14} /></button>
+              <div className="flex items-center gap-1">
+                <button data-testid={`btn-edit-hour-exc-${h.specific_date}`} onClick={() => setEditingHour({ ...h, slot_interval_minutes: String(h.slot_interval_minutes), default_duration_minutes: h.default_duration_minutes })} className="p-1.5 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800"><Pencil size={14} /></button>
+                <button onClick={() => remove(h.id)} className="p-1.5 rounded hover:bg-red-50 text-red-700"><Trash2 size={14} /></button>
+              </div>
             </div>
+            )
           ))}
         </div>
       </div>
