@@ -78,19 +78,20 @@ def duration_for_persons(oh: dict, persons: int) -> int:
 
 
 def generate_slots(oh: dict, persons: int) -> List[str]:
-    """Slots between open_time and (close_time - duration), stepping by interval."""
+    """Slots for the whole open window, stepping by interval.
+
+    The duration is NOT used to cut slots off before closing: the restaurant
+    decides how late a party may start. Duration only matters later, when
+    computing table occupancy for a chosen slot.
+    """
     interval = oh.get("slot_interval_minutes", 15)
-    duration = duration_for_persons(oh, persons)
     open_min = hhmm_to_minutes(oh["open_time"])
     close_min = hhmm_to_minutes(oh["close_time"])
     if close_min <= open_min:  # overnight not supported for MVP
         close_min += 24 * 60
-    last = close_min - duration
-    if last < open_min:
-        return []
     slots = []
     t = open_min
-    while t <= last:
+    while t < close_min:
         slots.append(minutes_to_hhmm(t))
         t += interval
     return slots
