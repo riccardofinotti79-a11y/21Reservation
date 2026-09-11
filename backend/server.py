@@ -383,7 +383,8 @@ async def create_table(body: TableCreate, cur=Depends(get_current_user)):
     area = await db.areas.find_one({"id": body.area_id, "restaurant_id": cur["restaurant_id"]}, NO_ID)
     if not area:
         raise HTTPException(400, "Area non valida")
-    t = Table(restaurant_id=cur["restaurant_id"], **body.model_dump())
+    payload = {k: v for k, v in body.model_dump().items() if v is not None}
+    t = Table(restaurant_id=cur["restaurant_id"], **payload)
     await db.tables.insert_one(t.model_dump())
     return t
 
