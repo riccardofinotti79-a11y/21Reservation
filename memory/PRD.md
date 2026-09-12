@@ -333,3 +333,75 @@ Stack: FastAPI + MongoDB + React/Tailwind + JWT auth + 5s polling + Resend email
 - `widget.js`: `btn.onclick` del floating button ora propaga `{ theme, accent }` a `openModal(sub, opts)`.
 - `widget-test.html`: fixture `#floating-wrap-terra` ora ha `data-theme="light"` così l'overlay iframe riceve theme+accent end-to-end.
 - Verifica testing agent (`/app/test_reports/iteration_17.json`, 5/5 PASS): tutti i casi (dark invariato, inline light, inline light+terra, floating terra overlay, dynamic mount) confermati in runtime post-cache-bust; `.glass` bg = `rgb(255,255,255)` in light, shell bg = `rgb(250,250,247)` in light, overlay del pulsante terra ha src con `theme=light&accent=%238B3A2E` e classe `public-shell-embed--light`. Le iter 15 e 16 avevano riportato falsi negativi per cache CDN stale.
+
+## Deploy — Test 1 su Render (2026-09-10/12)
+
+### Scopo
+Test 1 = de-risking: verificare che 21Reservation giri **fuori da Emergent**, su hosting pubblico. NON è produzione. La destinazione finale del DB è **Supabase (Postgres)**; qui si usa **MongoDB Atlas M0 (gratuito, temporaneo)** solo per validare l'infrastruttura. Migrazione Supabase = lavoro separato e successivo.
+
+### Architettura deploy
+- **Backend**: FastAPI + Motor, deploy come **Web Service Docker** da `backend/Dockerfile` su Render.
+- **Frontend**: React SPA, deploy come **Static Site** su Render (immagazzinato su CDN), build con npm.
+- **DB**: MongoDB Atlas M0. Il backend legge `MONGO_URL` da env var.
+- Orchestrazione: **Render Blueprint** — un singolo `render.yaml` definisce entrambi i servizi, deploy con "New + / Blueprint".
+
+### File di deploy
+| File | Ruolo |
+|---|---|
+| `render.yaml` (root repo) | Blueprint: web service backend (docker) + static site frontend (npm build), env vars, SPA rewrite, headers |
+| `backend/Dockerfile` | `python:3.11-slim`, `pip install -r requirements.txt`, `COPY . .`, `EXPOSE 8000`, `CMD uvicorn server:app --host 0.0.0.0 --port ${PORT:-8000}` (usa `$PORT` Render, fallback 8000 in locale) |
+| `backend/.dockerignore` | Esclude `.env`, `*.pyc`, `__pycache__/`, `.pytest_cache/`, `.mypy_cache/` — impedisce che i veri segreti (.env locale con Resend/Stripe/JWT) finiscano nell'immagine Docker |
+
+### render.yaml — dettagli chiave
+- Servizi: `type: web` (name `21reservation-backend`, `runtime: docker`, `dockerfilePath: backend/Dockerfile`) + `type: static_site` (name `21reservation-frontend`, `staticPublishPath: frontend/build`, `buildCommand: cd frontend && npm install && npm run build`).
+- SPA rewrite: `routes: [{type: rewrite, source: /\*, destination: /index.html}]` — route client-side funzionano su refresh diretto.
+- Headers static: `Cross-Origin-Resource-Policy: cross-origin` + `Cross-Origin-Embedder-Policy: unsafe-none` — necessari per widget embed e risorse condivise. `same-origin` bloccava l'embed (vedi Iter 25).
+- Env var con `sync: false`: **il valore NON viene dal codice** — Render lo chiede nel dashboard al primo deploy. Non committare MAI i segreti reali.
+
+### Variabili d'ambiente obbligatorie (Dashboard Render, envVars `sync: false`)
+Backend:
+- `MONGO_URL` — connessione MongoDB Atlas M0
+- `JWT_SECRET` — firma JWT (cambiare da default!)
+- `CORS_ORIGINS` — origine frontend consentita
+- `PUBLIC_BASE_URL` — base URL pubblica backend (per email/webhook)
+- `AGENCY_ADMIN_EMAIL` / `AGENCY_ADMIN_PASSWORD` — admin agenzia
+
+Valori fissi in `render.yaml` (non segreti):
+- `DB_NAME=21reservation`, `JWT_ALGO=HS256`, `JWT_EXPIRE_MIN=1440`, `SEED_ENABLED=false`, `RUN_REPAIR_ON_BOOT=false`
+
+Vuoti (servizi live non usati in Test 1): `EMAIL_FROM`, `RESEND_API_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `WEBHOOK_CRON_SECRET`.
+
+Frontend:
+- `REACT_APP_BACKEND_URL` — puntato al backend Render (unico punto di configurazione API in `frontend/src/api.js`; nessuna URL hardcoded).
+
+### Convenzione regole app
+- `SEED_ENABLED=false` di default: niente seed automatico in prod. Seed demo (`/api/seed-demo`) è idempotente e parte solo su richiesta.
+- `RUN_REPAIR_ON_BOOT=false`: il data repair non gira da solo in prod.
+
+### Flusso di deploy (operativo)
+1. Modifiche → commit + push su `main` (unico branch).
+2. Render rileva il push su `main` e auto-deploya entrambi i servizi del blueprint.
+3. Backend: build immagine Docker + avvio uvicorn su `$PORT`.
+4. Frontend: `npm install && npm run build` → pubblica `frontend/build` su CDN.
+5. Verifica (vedi checklist sotto).
+
+Nota: il deploy iniziale del blueprint richiede, nel dashboard Render, di impostare le env var `sync:false` la prima volta. Il deploy stesso è manuale da parte dell'utente — il codice non tocca mai la dashboard Render.
+
+### Verifica post-deploy manuale
+- Login agenzia (`/login`) con `AGENCY_ADMIN_*` → portale `/admin`.
+- Login ristorante demo con credenziali seed (se SEED_ENABLED=true).
+- Booking pubblico: `/book/{subdomain}` — wizard 4 step funziona, slot ogni mezz'ora su tutta la finestra aperta.
+- Sezione **Tavoli**: aggiungi tavolo funziona (fix `position=None`), la prenotazione non resta bloccata.
+- Headers: `curl -I` sulla URL frontend → `Cross-Origin-Resource-Policy: cross-origin` presente (serve per widget).
+
+### Problematiche affrontate nel Test 1 (rilevanti per il deploy)
+- **POST /tables 500** → `TableCreate.position` era `Optional` e `model_dump()` emetteva `position=None` su `Table.position` non-Optionale; fix in `create_table`: filtra i campi `None`. Effetto: 0 tavoli bookable → disponibilità vuota → booking bloccato.
+- **Yarn non disponibile su Render** → `render.yaml` usa npm (`npm install && npm run build`); repo ha solo `package-lock.json`.
+- **Liste "sparite" per un attimo** → fetch transiente fallito mostrava `[]`; fix previsto in `frontend/src/usePolling.js` (mantiene ultimo `data` buono su errore, retry 2s su errore, loading finché primo successo). Da committare.
+
+### Vincoli Test 1 (rispettare)
+- NO nuove feature (decide product owner).
+- NO toccare schema/query Mongo.
+- NO dominio custom, Stripe live, Resend live, monitoring.
+- NO MongoDB Atlas a pagamento (usa M0 free).
+- Migrazione Supabase = lavoro separato e successivo.
