@@ -4,10 +4,8 @@ services:
     runtime: docker
     dockerfilePath: backend/Dockerfile
     envVars:
-      - key: MONGO_URL
+      - key: DATABASE_URL
         sync: false
-      - key: DB_NAME
-        value: 21reservation
       - key: JWT_SECRET
         sync: false
       - key: JWT_ALGO

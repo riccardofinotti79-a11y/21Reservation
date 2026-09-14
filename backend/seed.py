@@ -1,30 +1,31 @@
 """Seed demo data for 21Reservation."""
 from __future__ import annotations
 
-import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from auth import hash_password
+from db import execute, execute_many, fetch_all, fetch_one, get_conn
 from models import (
     Area,
     Booking,
     Customer,
     OpeningHour,
+    Position,
     Restaurant,
     StatusChange,
     Table,
     User,
     DurationRule,
-    new_id,
 )
 
 
-async def seed_demo(db) -> dict:
+async def seed_demo() -> dict:
     """Idempotently create a demo restaurant + staff account + tables + hours + a few bookings.
 
     Returns a summary dict.
     """
-    existing = await db.restaurants.find_one({"subdomain": "demo"}, {"_id": 0})
+    existing = await fetch_one("SELECT id FROM restaurants WHERE subdomain = 'demo'")
     if existing:
         return {"created": False, "restaurant_id": existing["id"]}
 
@@ -39,9 +40,15 @@ async def seed_demo(db) -> dict:
         currency="EUR",
         timezone="Europe/Rome",
     )
-    r_doc = r.model_dump()
-    r_doc["created_at"] = r_doc["created_at"].isoformat()
-    await db.restaurants.insert_one(r_doc)
+    await execute(
+        "INSERT INTO restaurants (id, name, subdomain, status, address, phone, email, language, currency, timezone, "
+        "deposit_enabled, deposit_threshold_persons, deposit_amount_per_person, avg_ticket_per_guest, "
+        "reminder_enabled, reminder_lead_hours, whatsapp_enabled, created_at) "
+        "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,now())",
+        (r.id, r.name, r.subdomain, r.status, r.address, r.phone, r.email, r.language, r.currency, r.timezone,
+         r.deposit_enabled, r.deposit_threshold_persons, r.deposit_amount_per_person, r.avg_ticket_per_guest,
+         r.reminder_enabled, r.reminder_lead_hours, r.whatsapp_enabled),
+    )
 
     # Users: owner + staff
     owner = User(
@@ -58,54 +65,64 @@ async def seed_demo(db) -> dict:
         password_hash=hash_password("demo1234"),
         role="staff",
     )
-    for u in (owner, staff):
-        d = u.model_dump()
-        d["created_at"] = d["created_at"].isoformat()
-        await db.users.insert_one(d)
+    await execute_many(
+        "INSERT INTO users (id, restaurant_id, name, email, password_hash, role, created_at) "
+        "VALUES (%s,%s,%s,%s,%s,%s,now())",
+        [(u.id, u.restaurant_id, u.name, u.email, u.password_hash, u.role) for u in (owner, staff)],
+    )
 
     # Areas
     sala = Area(restaurant_id=r.id, name="Sala Principale", priority=10)
     dehors = Area(restaurant_id=r.id, name="Dehors", priority=5)
     private = Area(restaurant_id=r.id, name="Sala Privata", priority=3)
-    await db.areas.insert_many([a.model_dump() for a in (sala, dehors, private)])
+    area_docs = [(a.id, a.restaurant_id, a.name, a.priority) for a in (sala, dehors, private)]
+    await execute_many(
+        "INSERT INTO areas (id, restaurant_id, name, priority) VALUES (%s,%s,%s,%s)", area_docs
+    )
 
     # Tables
     tables = []
     def _grid_pos(idx):
         col = idx % 4
         row = idx // 4
-        return {"x": 40 + col * 120, "y": 40 + row * 100}
+        return (40 + col * 120, 40 + row * 100)
     sala_i = 0; dehors_i = 0; private_i = 0
     # Sala Principale
     for i, (name, mn, mx) in enumerate([
         ("T1", 1, 2), ("T2", 1, 2), ("T3", 2, 4), ("T4", 2, 4),
         ("T5", 4, 6), ("T6", 4, 6), ("T7", 6, 8),
     ]):
+        x, y = _grid_pos(sala_i)
         tables.append(Table(
             restaurant_id=r.id, area_id=sala.id, name=name,
             seats_min=mn, seats_max=mx, priority=10 - i,
             shape="round" if mn <= 2 else "square",
-            position=_grid_pos(sala_i),
-        ))
+        ).model_copy(update={"position": Position(x=x, y=y)}))
         sala_i += 1
     # Dehors
     for i, (name, mn, mx) in enumerate([
         ("D1", 2, 2), ("D2", 2, 4), ("D3", 4, 6),
     ]):
+        x, y = _grid_pos(dehors_i)
         tables.append(Table(
             restaurant_id=r.id, area_id=dehors.id, name=name,
             seats_min=mn, seats_max=mx, priority=5 - i,
             shape="square",
-            position=_grid_pos(dehors_i),
-        ))
+        ).model_copy(update={"position": Position(x=x, y=y)}))
         dehors_i += 1
     # Private
+    x, y = _grid_pos(private_i)
     tables.append(Table(
         restaurant_id=r.id, area_id=private.id, name="Private-1",
         seats_min=6, seats_max=12, priority=1, shape="rect",
-        position=_grid_pos(private_i),
-    ))
-    await db.tables.insert_many([t.model_dump() for t in tables])
+    ).model_copy(update={"position": Position(x=x, y=y)}))
+    await execute_many(
+        "INSERT INTO tables (id, restaurant_id, area_id, name, seats_min, seats_max, priority, "
+        "bookable_staff, bookable_online, shape, position_x, position_y) "
+        "VALUES (%s,%s,%s,%s,%s,%s,%s,TRUE,TRUE,%s,%s,%s)",
+        [(t.id, t.restaurant_id, t.area_id, t.name, t.seats_min, t.seats_max, t.priority, t.shape,
+          t.position.x, t.position.y) for t in tables],
+    )
 
     # Opening hours: dinner service Tue-Sun, 19:00 - 23:00
     duration_rules = [
@@ -115,7 +132,7 @@ async def seed_demo(db) -> dict:
     ]
     ohs = []
     for wd in [1, 2, 3, 4, 5, 6]:  # Tue..Sun
-        oh = OpeningHour(
+        ohs.append(OpeningHour(
             restaurant_id=r.id,
             weekday=wd,
             open_time="19:00",
@@ -125,11 +142,10 @@ async def seed_demo(db) -> dict:
             slot_interval_minutes=15,
             default_duration_minutes=120,
             duration_rules=duration_rules,
-        )
-        ohs.append(oh)
+        ))
     # Lunch Sat/Sun
     for wd in [5, 6]:
-        oh = OpeningHour(
+        ohs.append(OpeningHour(
             restaurant_id=r.id,
             weekday=wd,
             open_time="12:30",
@@ -139,12 +155,16 @@ async def seed_demo(db) -> dict:
             slot_interval_minutes=15,
             default_duration_minutes=90,
             duration_rules=duration_rules,
-        )
-        ohs.append(oh)
-    for oh in ohs:
-        d = oh.model_dump()
-        # duration_rules already serialized as dicts by model_dump
-        await db.opening_hours.insert_one(d)
+        ))
+    await execute_many(
+        "INSERT INTO opening_hours (id, restaurant_id, weekday, specific_date, open_time, close_time, title, "
+        "service_type, slot_interval_minutes, default_duration_minutes, duration_rules, is_closed, "
+        "requires_payment, payment_amount) "
+        "VALUES (%s,%s,%s,NULL,%s,%s,%s,%s,%s,%s,%s,FALSE,FALSE,%s)",
+        [(oh.id, oh.restaurant_id, oh.weekday, oh.open_time, oh.close_time, oh.title, oh.service_type,
+          oh.slot_interval_minutes, oh.default_duration_minutes, oh.duration_rules, oh.payment_amount)
+         for oh in ohs],
+    )
 
     # Customers
     customers_data = [
@@ -156,9 +176,11 @@ async def seed_demo(db) -> dict:
     customers = []
     for name, phone, email in customers_data:
         c = Customer(restaurant_id=r.id, name=name, phone=phone, email=email)
-        d = c.model_dump()
-        d["created_at"] = d["created_at"].isoformat()
-        await db.customers.insert_one(d)
+        await execute(
+            "INSERT INTO customers (id, restaurant_id, name, phone, email, tags, created_at) "
+            "VALUES (%s,%s,%s,%s,%s,ARRAY[]::jsonb,now())",
+            (c.id, c.restaurant_id, c.name, c.phone, c.email),
+        )
         customers.append(c)
 
     # A few bookings today + next days
@@ -186,26 +208,38 @@ async def seed_demo(db) -> dict:
             table_ids=[table_id],
             status_history=[StatusChange(status=status)],
         )
-        doc = b.model_dump()
-        doc["created_at"] = doc["created_at"].isoformat()
-        for sh in doc["status_history"]:
-            sh["at"] = sh["at"].isoformat() if hasattr(sh["at"], "isoformat") else sh["at"]
-        await db.bookings.insert_one(doc)
+        async with get_conn() as conn:
+            row = b.model_dump()
+            await conn.execute(
+                "INSERT INTO bookings (id, restaurant_id, customer_id, date, time, duration_minutes, persons, status, source, deposit_required, deposit_amount, created_at) "
+                "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,FALSE,%s,%s)",
+                (row["id"], row["restaurant_id"], row["customer_id"], row["date"], row["time"],
+                 row["duration_minutes"], row["persons"], row["status"], row["source"], row["deposit_amount"],
+                 row["created_at"]),
+            )
+            start_ts = datetime.strptime(f"{d} {time_str}", "%Y-%m-%d %H:%M").replace(tzinfo=ZoneInfo("Europe/Rome"))
+            end_ts = start_ts + timedelta(minutes=b.duration_minutes)
+            await conn.execute(
+                "INSERT INTO booking_tables (booking_id, table_id, start_ts, end_ts, active) VALUES (%s,%s,%s,%s,TRUE)",
+                (b.id, table_id, start_ts, end_ts),
+            )
+            for sc in b.status_history:
+                await conn.execute(
+                    "INSERT INTO booking_status_history (booking_id, status, at, by_user_id) VALUES (%s,%s,%s,NULL)",
+                    (b.id, sc.status, sc.at),
+                )
         involved_customer_ids.add(cust.id)
 
     # Recompute metrics for each customer touched by seed bookings
     for cid in involved_customer_ids:
-        docs = await db.bookings.find({"customer_id": cid}, {"_id": 0}).to_list(2000)
-        total = len(docs)
-        no_show = sum(1 for x in docs if x.get("status") == "no_show")
-        cancelled = sum(1 for x in docs if x.get("status") == "cancelled")
-        await db.customers.update_one(
-            {"id": cid},
-            {"$set": {
-                "total_bookings": total,
-                "no_show_count": no_show,
-                "cancelled_count": cancelled,
-            }},
+        doc = await fetch_one(
+            "SELECT COUNT(*) AS total, "
+            "COUNT(*) FILTER (WHERE status = 'no_show') AS no_show, "
+            "COUNT(*) FILTER (WHERE status = 'cancelled') AS cancelled "
+            "FROM bookings WHERE customer_id = %s", (cid,))
+        await execute(
+            "UPDATE customers SET total_bookings = %s, no_show_count = %s, cancelled_count = %s WHERE id = %s",
+            (doc["total"], doc["no_show"], doc["cancelled"], cid),
         )
 
     return {

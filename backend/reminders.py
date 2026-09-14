@@ -3,9 +3,9 @@ from __future__ import annotations
 
 import logging
 import secrets
-from datetime import datetime, timedelta, timezone, date as date_cls
-from typing import List
+from datetime import datetime, timedelta, timezone
 
+from db import execute, fetch_all
 from email_service import send_email
 from whatsapp_service import send_whatsapp, build_reminder_wa
 
@@ -72,7 +72,7 @@ def reminder_email_html(
 
 
 async def send_reminders_for_restaurant(
-    db, restaurant: dict, base_url: str,
+    restaurant: dict, base_url: str,
 ) -> dict:
     """Send reminders for bookings ~lead_hours ahead. Idempotent per booking."""
     if not restaurant.get("reminder_enabled", True):
@@ -82,20 +82,26 @@ async def send_reminders_for_restaurant(
     # Target date = today + floor(lead_hours/24). For 24 that's tomorrow.
     target = (datetime.now(timezone.utc).date() + timedelta(hours=lead_hours)).isoformat()
 
-    # Find candidate bookings: active + on target date + not yet reminded
-    active_statuses = ["accepted", "seated", "pending"]
-    docs = await db.bookings.find({
-        "restaurant_id": restaurant["id"],
-        "date": target,
-        "status": {"$in": active_statuses},
-        "reminder_sent_at": None,
-    }, {"_id": 0}).to_list(1000)
+    # Find candidate bookings (single JOIN kills the N+1 customer lookups):
+    # active + on target date + not yet reminded
+    docs = await fetch_all(
+        "SELECT b.id, b.date, b.time, b.persons, b.cancel_token, r.name AS restaurant_name, "
+        "       r.address, c.name AS customer_name, c.email AS customer_email, c.phone AS customer_phone "
+        "FROM bookings b "
+        "JOIN customers c ON c.id = b.customer_id "
+        "JOIN restaurants r ON r.id = b.restaurant_id "
+        "WHERE b.restaurant_id = %s AND b.date = %s AND b.status IN ('accepted','seated','pending') "
+        "  AND b.reminder_sent_at IS NULL",
+        (restaurant["id"], target),
+    )
 
     sent = 0
     for b in docs:
-        customer = await db.customers.find_one({"id": b["customer_id"]}, {"_id": 0})
-        if not customer:
-            continue
+        customer = {
+            "name": b["customer_name"],
+            "email": b["customer_email"],
+            "phone": b["customer_phone"],
+        }
 
         # Ensure cancel_token
         token = b.get("cancel_token") or secrets.token_urlsafe(24)
@@ -103,28 +109,25 @@ async def send_reminders_for_restaurant(
 
         did_email = False
         did_wa = False
-        if customer.get("email"):
+        if customer["email"]:
             html = reminder_email_html(
                 restaurant["name"], customer["name"], b["date"], b["time"], b["persons"],
-                cancel_url, restaurant.get("address"),
+                cancel_url, b.get("address"),
             )
             did_email = await send_email(
                 customer["email"], f"Promemoria — {restaurant['name']}", html,
             )
-        if customer.get("phone") and restaurant.get("whatsapp_enabled"):
+        if customer["phone"] and restaurant.get("whatsapp_enabled"):
             wa_msg = build_reminder_wa(
                 restaurant["name"], customer["name"], b["date"], b["time"], b["persons"], cancel_url,
             )
             did_wa = await send_whatsapp(restaurant, customer["phone"], wa_msg)
 
         # Mark as sent regardless (best effort). Idempotency: we only pick rows with reminder_sent_at=None.
-        await db.bookings.update_one(
-            {"id": b["id"]},
-            {"$set": {
-                "cancel_token": token,
-                "reminder_sent_at": datetime.now(timezone.utc).isoformat(),
-                "reminder_channels": [c for c, ok in [("email", did_email), ("whatsapp", did_wa)] if ok],
-            }},
+        await execute(
+            "UPDATE bookings SET cancel_token = %s, reminder_sent_at = %s, reminder_channels = %s WHERE id = %s",
+            (token, datetime.now(timezone.utc).isoformat(),
+             [c for c, ok in [("email", did_email), ("whatsapp", did_wa)] if ok], b["id"]),
         )
         sent += 1
 

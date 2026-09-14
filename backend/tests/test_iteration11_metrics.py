@@ -152,40 +152,28 @@ def test_metrics_new_restaurant_zero(agency_token, new_restaurant):
 
 
 def test_metrics_after_bookings(agency_token, new_restaurant, demo_before):
-    # Seed 2 bookings directly to MongoDB (new restaurant has no opening_hours/tables).
+    # Seed 2 bookings directly to Postgres (new restaurant has no opening_hours/tables).
     # Allowed per task note.
     import asyncio
     from datetime import date, timedelta, datetime, timezone
-    from motor.motor_asyncio import AsyncIOMotorClient
     import uuid
+    import psycopg
+    from psycopg.rows import dict_row
     from dotenv import load_dotenv
     load_dotenv("/app/backend/.env")
-    mongo_url = os.environ["MONGO_URL"]
-    db_name = os.environ["DB_NAME"]
+    dsn = os.environ["DATABASE_URL"]
 
     d = (date.today() + timedelta(days=3)).isoformat()
     rid = new_restaurant["id"]
 
     async def seed():
-        client = AsyncIOMotorClient(mongo_url)
-        db = client[db_name]
-        for i in range(2):
-            await db.bookings.insert_one({
-                "id": str(uuid.uuid4()),
-                "restaurant_id": rid,
-                "date": d,
-                "time": f"20:{i:02d}",
-                "persons": 2 + i,  # 2+3=5
-                "duration_minutes": 120,
-                "status": "accepted",
-                "source": "phone",
-                "table_ids": [],
-                "customer_name": f"Guest {i}",
-                "customer_email": f"guest{i}+{TS}@example.com",
-                "customer_phone": "+390000000000",
-                "created_at": datetime.now(timezone.utc),
-            })
-        client.close()
+        async with await psycopg.AsyncConnection.connect(dsn, row_factory=dict_row) as conn:
+            for i in range(2):
+                await conn.execute(
+                    "INSERT INTO bookings (id, restaurant_id, date, time, persons, duration_minutes, status, source, created_at) "
+                    "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,now())",
+                    (str(uuid.uuid4()), rid, d, f"20:{i:02d}", 2 + i, 120, "accepted", "phone"),
+                )
     asyncio.run(seed())
 
     r = requests.get(f"{API}/admin/metrics", headers=_h(agency_token), timeout=15)
