@@ -13,7 +13,13 @@ pool: Optional[AsyncConnectionPool] = None
 
 # numeric columns (deposit_amount, avg_ticket_per_guest, ...) come back as float
 # instead of Decimal — matches the Pydantic float fields without per-row casts.
-psycopg.adapters.register_loader("numeric", NumericLoader(float))
+class FloatNumericLoader(NumericLoader):
+    def load(self, data):
+        val = super().load(data)
+        return float(val) if val is not None else None
+
+
+psycopg.adapters.register_loader("numeric", FloatNumericLoader)
 
 
 async def init_db():
