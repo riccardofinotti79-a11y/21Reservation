@@ -44,10 +44,10 @@ async def seed_demo() -> dict:
         "INSERT INTO restaurants (id, name, subdomain, status, address, phone, email, language, currency, timezone, "
         "deposit_enabled, deposit_threshold_persons, deposit_amount_per_person, avg_ticket_per_guest, "
         "reminder_enabled, reminder_lead_hours, whatsapp_enabled, created_at) "
-        "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,now())",
+        "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
         (r.id, r.name, r.subdomain, r.status, r.address, r.phone, r.email, r.language, r.currency, r.timezone,
          r.deposit_enabled, r.deposit_threshold_persons, r.deposit_amount_per_person, r.avg_ticket_per_guest,
-         r.reminder_enabled, r.reminder_lead_hours, r.whatsapp_enabled),
+         r.reminder_enabled, r.reminder_lead_hours, r.whatsapp_enabled, r.created_at),
     )
 
     # Users: owner + staff
@@ -178,7 +178,7 @@ async def seed_demo() -> dict:
         c = Customer(restaurant_id=r.id, name=name, phone=phone, email=email)
         await execute(
             "INSERT INTO customers (id, restaurant_id, name, phone, email, tags, created_at) "
-            "VALUES (%s,%s,%s,%s,%s,ARRAY[]::jsonb,now())",
+            "VALUES (%s,%s,%s,%s,%s,'[]'::jsonb,now())",
             (c.id, c.restaurant_id, c.name, c.phone, c.email),
         )
         customers.append(c)

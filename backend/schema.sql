@@ -200,7 +200,7 @@ CREATE TABLE IF NOT EXISTS booking_tables (
     end_ts      TIMESTAMPTZ NOT NULL,
     active      BOOLEAN NOT NULL DEFAULT TRUE,
     -- no double-booking of same table for overlapping time ranges (active slots only)
-    EXCLUDE USING gist (table_id WITH =, tsrange(start_ts, end_ts) WITH &&) WHERE (active)
+    EXCLUDE USING gist (table_id WITH =, tstzrange(start_ts, end_ts) WITH &&) WHERE (active)
 );
 
 -- ========================================================
