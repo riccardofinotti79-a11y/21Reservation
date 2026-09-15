@@ -165,14 +165,15 @@ def test_metrics_after_bookings(agency_token, new_restaurant, demo_before):
 
     d = (date.today() + timedelta(days=3)).isoformat()
     rid = new_restaurant["id"]
+    cid = str(uuid.uuid4())
 
     async def seed():
         async with await psycopg.AsyncConnection.connect(dsn, row_factory=dict_row) as conn:
             for i in range(2):
                 await conn.execute(
-                    "INSERT INTO bookings (id, restaurant_id, date, time, persons, duration_minutes, status, source, created_at) "
-                    "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,now())",
-                    (str(uuid.uuid4()), rid, d, f"20:{i:02d}", 2 + i, 120, "accepted", "phone"),
+                    "INSERT INTO bookings (id, restaurant_id, customer_id, date, time, persons, duration_minutes, status, source, created_at) "
+                    "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,now())",
+                    (str(uuid.uuid4()), rid, cid, d, f"20:{i:02d}", 2 + i, 120, "accepted", "phone"),
                 )
     asyncio.run(seed())
 

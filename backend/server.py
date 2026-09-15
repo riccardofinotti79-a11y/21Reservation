@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo
 
 import psycopg
 from psycopg.errors import ExclusionViolation  # noqa: E402
+from psycopg.types.json import Jsonb  # noqa: E402
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, status
 from starlette.middleware.cors import CORSMiddleware
@@ -415,7 +416,7 @@ async def create_opening_hour(body: OpeningHourCreate, cur=Depends(get_current_u
         "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
         (oh.id, oh.restaurant_id, oh.weekday, oh.specific_date, oh.open_time, oh.close_time,
          oh.title, oh.service_type, oh.slot_interval_minutes, oh.default_duration_minutes,
-         oh.duration_rules, oh.is_closed, oh.requires_payment, oh.payment_amount),
+         Jsonb([r.model_dump() for r in oh.duration_rules]), oh.is_closed, oh.requires_payment, oh.payment_amount),
     )
     return oh
 
@@ -423,6 +424,8 @@ async def create_opening_hour(body: OpeningHourCreate, cur=Depends(get_current_u
 @api.patch("/opening-hours/{oh_id}", response_model=OpeningHour)
 async def update_opening_hour(oh_id: str, body: OpeningHourCreate, cur=Depends(get_current_user)):
     upd = {k: v for k, v in body.model_dump().items() if v is not None}
+    if "duration_rules" in upd:
+        upd["duration_rules"] = Jsonb([r.model_dump() for r in upd["duration_rules"]])
     set_clause = ", ".join(f"{k} = %s" for k in upd)
     rowcount = await execute(f"UPDATE opening_hours SET {set_clause} WHERE id = %s AND restaurant_id = %s", (*upd.values(), oh_id, cur["restaurant_id"]))
     if rowcount == 0:
@@ -548,7 +551,7 @@ async def _find_or_create_customer(
         await execute(
             "INSERT INTO customers (id, restaurant_id, name, phone, email, tags, notes, bad_guest_flag, total_bookings, no_show_count, cancelled_count, created_at) "
             "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
-            (d["id"], d["restaurant_id"], d["name"], d["phone"], d["email"], d["tags"], d["notes"],
+            (d["id"], d["restaurant_id"], d["name"], d["phone"], d["email"], Jsonb(d["tags"]), d["notes"],
              d["bad_guest_flag"], d["total_bookings"], d["no_show_count"], d["cancelled_count"], d["created_at"]),
         )
     except psycopg.errors.UniqueViolation:
@@ -584,7 +587,7 @@ async def create_customer(body: CustomerCreate, cur=Depends(get_current_user)):
     await execute(
         "INSERT INTO customers (id, restaurant_id, name, phone, email, tags, notes, bad_guest_flag, total_bookings, no_show_count, cancelled_count, created_at) "
         "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
-        (d["id"], d["restaurant_id"], d["name"], d["phone"], d["email"], d["tags"], d["notes"],
+        (d["id"], d["restaurant_id"], d["name"], d["phone"], d["email"], Jsonb(d["tags"]), d["notes"],
          d["bad_guest_flag"], d["total_bookings"], d["no_show_count"], d["cancelled_count"], d["created_at"]),
     )
     return c

@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 
 from db import execute, fetch_all
 from email_service import send_email
+from psycopg.types.json import Jsonb
 from whatsapp_service import send_whatsapp, build_reminder_wa
 
 logger = logging.getLogger(__name__)
@@ -127,7 +128,7 @@ async def send_reminders_for_restaurant(
         await execute(
             "UPDATE bookings SET cancel_token = %s, reminder_sent_at = %s, reminder_channels = %s WHERE id = %s",
             (token, datetime.now(timezone.utc).isoformat(),
-             [c for c, ok in [("email", did_email), ("whatsapp", did_wa)] if ok], b["id"]),
+             Jsonb([c for c, ok in [("email", did_email), ("whatsapp", did_wa)] if ok]), b["id"]),
         )
         sent += 1
 

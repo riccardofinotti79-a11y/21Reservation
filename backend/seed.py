@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 
 from auth import hash_password
 from db import execute, execute_many, fetch_all, fetch_one, get_conn
+from psycopg.types.json import Jsonb
 from models import (
     Area,
     Booking,
@@ -162,7 +163,8 @@ async def seed_demo() -> dict:
         "requires_payment, payment_amount) "
         "VALUES (%s,%s,%s,NULL,%s,%s,%s,%s,%s,%s,%s,FALSE,FALSE,%s)",
         [(oh.id, oh.restaurant_id, oh.weekday, oh.open_time, oh.close_time, oh.title, oh.service_type,
-          oh.slot_interval_minutes, oh.default_duration_minutes, oh.duration_rules, oh.payment_amount)
+          oh.slot_interval_minutes, oh.default_duration_minutes,
+          Jsonb([r.model_dump() for r in oh.duration_rules]), oh.payment_amount)
          for oh in ohs],
     )
 
