@@ -21,7 +21,7 @@ services:
       - key: AGENCY_ADMIN_PASSWORD
         sync: false
       - key: SEED_ENABLED
-        value: "false"
+        value: "true"
       - key: EMAIL_FROM
         value: ""
       - key: RESEND_API_KEY
