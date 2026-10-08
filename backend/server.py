@@ -1744,7 +1744,9 @@ async def cron_send_reminders(request: Request):
     # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
     auth = request.headers.get("authorization", "")
     expected = os.environ.get("WEBHOOK_CRON_SECRET", "")
-    if not expected or not auth.startswith("Bearer ") or auth.split(" ", 1)[1] != expected:
+    if not expected or not auth.startswith("Bearer ") or not _secrets.compare_digest(
+        auth.split(" ", 1)[1].encode(), expected.encode()
+    ):
         raise HTTPException(401, "Unauthorized")
     base_url = os.environ.get("PUBLIC_BASE_URL") or str(request.base_url).rstrip("/")
     results = []
