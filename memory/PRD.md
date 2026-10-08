@@ -334,7 +334,16 @@ Stack: FastAPI + MongoDB + React/Tailwind + JWT auth + 5s polling + Resend email
 - `widget-test.html`: fixture `#floating-wrap-terra` ora ha `data-theme="light"` così l'overlay iframe riceve theme+accent end-to-end.
 - Verifica testing agent (`/app/test_reports/iteration_17.json`, 5/5 PASS): tutti i casi (dark invariato, inline light, inline light+terra, floating terra overlay, dynamic mount) confermati in runtime post-cache-bust; `.glass` bg = `rgb(255,255,255)` in light, shell bg = `rgb(250,250,247)` in light, overlay del pulsante terra ha src con `theme=light&accent=%238B3A2E` e classe `public-shell-embed--light`. Le iter 15 e 16 avevano riportato falsi negativi per cache CDN stale.
 
-## Deploy — Test 1 su Render (2026-09-10/12)
+## Deploy — stato attuale (aggiornato 8 ottobre 2026)
+- **DB**: PostgreSQL su **Supabase** (psycopg 3 + pool, schema in `backend/schema.sql`). MongoDB Atlas non è più usato; il backend legge `DATABASE_URL`. Dettagli migrazione in `memory/migration-supabase-fase1.md`.
+- **Servizi Render** (i nomi nel dashboard differiscono da quelli in `render.yaml`):
+  - backend **"21Reservation"** — Web Service Docker (`backend/Dockerfile`, uvicorn con `--proxy-headers`, utente non root) → https://two1reservation.onrender.com
+  - frontend **"21Reservation-1"** — Static Site (`frontend/build`) → https://two1reservation-1.onrender.com
+- **Branch**: `main`, con auto-deploy a ogni commit. Lavorare su branch e passare a `main` solo quando i controlli CI sono verdi.
+- **Variabili**: `SEED_ENABLED=false` in produzione (niente ristorante demo con credenziali note). `AGENCY_ADMIN_PASSWORD` è **obbligatoria**: senza, l'account agency_admin non viene creato (log di errore, nessuna password di default). I segreti (`DATABASE_URL`, `JWT_SECRET`, `RESEND_API_KEY`, `STRIPE_*`, `WEBHOOK_CRON_SECRET`, `AGENCY_ADMIN_*`) sono `sync: false` in `render.yaml` e vivono solo nel dashboard Render.
+- La sezione "Test 1" qui sotto è storica (fase MongoDB Atlas) e non descrive più l'infrastruttura attuale.
+
+## Deploy — Test 1 su Render (2026-09-10/12) — storico
 
 ### Scopo
 Test 1 = de-risking: verificare che 21Reservation giri **fuori da Emergent**, su hosting pubblico. NON è produzione. La destinazione finale del DB è **Supabase (Postgres)**; qui si usa **MongoDB Atlas M0 (gratuito, temporaneo)** solo per validare l'infrastruttura. Migrazione Supabase = lavoro separato e successivo.
@@ -405,3 +414,20 @@ Nota: il deploy iniziale del blueprint richiede, nel dashboard Render, di impost
 - NO dominio custom, Stripe live, Resend live, monitoring.
 - NO MongoDB Atlas a pagamento (usa M0 free).
 - Migrazione Supabase = lavoro separato e successivo.
+
+## Sicurezza (8 ottobre 2026)
+Correzioni da audit (branch `fix/sicurezza`):
+- Admin agenzia: nessuna password di default; senza `AGENCY_ADMIN_PASSWORD` l'admin non viene creato e una password esistente non viene mai sovrascritta.
+- Seed demo disattivato in `render.yaml` e rimosso dal login il suggerimento con le credenziali demo.
+- Isolamento tra ristoranti: `DELETE /api/booking-limits/{id}` solo sui limiti del proprio ristorante; `table_ids` in `POST`/`PATCH /api/bookings` validati sul ristorante dell'utente (400); la PATCH risponde 409 sul conflitto del vincolo EXCLUDE.
+- Segreti WhatsApp (SID e token Twilio, token Meta) mai restituiti dalle API: al loro posto `whatsapp_*_set` e `whatsapp_configured`; in Impostazioni un campo vuoto significa "non cambiare".
+- Login: 429 dopo 10 tentativi falliti in 15 minuti per IP+email (contatore in memoria, per processo).
+- Email: `html.escape()` su tutti i dati scritti da staff/ospiti (conferma, notifica staff, promemoria, lista d'attesa).
+- Cron promemoria: segreto confrontato con `secrets.compare_digest`.
+- Prenotazione pubblica: solo orari presenti negli slot del giorno, formato `HH:MM`, persone 1-50.
+- Stripe: `origin_url` accettato solo se è `PUBLIC_BASE_URL` o una delle `CORS_ORIGINS`.
+- Disdetta pubblica via token solo per prenotazioni `pending`/`accepted`.
+- Docker: utente non root; rimosse da `requirements.txt` le dipendenze mai importate.
+- Workflow `claude.yml`: l'agente non può più eseguire `python` arbitrario né installare pacchetti.
+
+Da fare (non incluso): RLS su Supabase, distinzione ruoli staff/owner sugli endpoint di gestione, revoca dei JWT alla sospensione del ristorante, cifratura dei token WhatsApp nel DB, rate limit condiviso tra processi (oggi in memoria).
