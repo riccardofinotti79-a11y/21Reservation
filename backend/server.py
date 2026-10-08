@@ -1723,6 +1723,9 @@ async def public_do_cancel(token: str, request: Request):
         raise HTTPException(404, "Not found")
     if b["status"] == "cancelled":
         return {"ok": True, "already": True}
+    # Solo prenotazioni ancora attive e non iniziate (no seated / no_show / declined)
+    if b["status"] not in ("pending", "accepted"):
+        raise HTTPException(409, "Questa prenotazione non può più essere disdetta online")
     # Reject cancellation if token has expired
     expires_at = b.get("cancel_token_expires_at")
     if expires_at:
@@ -1730,7 +1733,12 @@ async def public_do_cancel(token: str, request: Request):
         if exp_dt.replace(tzinfo=timezone.utc) < utc_now():
             raise HTTPException(410, "Il link di cancellazione è scaduto")
     async with get_conn() as conn:
-        await conn.execute("UPDATE bookings SET status = 'cancelled' WHERE id = %s", (b["id"],))
+        cur = await conn.execute(
+            "UPDATE bookings SET status = 'cancelled' WHERE id = %s AND status IN ('pending', 'accepted')",
+            (b["id"],),
+        )
+        if cur.rowcount == 0:
+            raise HTTPException(409, "Questa prenotazione non può più essere disdetta online")
         await conn.execute(
             "INSERT INTO booking_status_history (booking_id, status, at, by_user_id) VALUES (%s,'cancelled',%s,NULL)",
             (b["id"], utc_now()),

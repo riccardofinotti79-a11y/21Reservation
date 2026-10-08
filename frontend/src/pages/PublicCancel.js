@@ -25,7 +25,7 @@ export default function PublicCancel() {
       await api.post(`/public/cancel/${token}`);
       setDone(true);
       toast.success("Prenotazione disdetta");
-    } catch { toast.error("Errore"); }
+    } catch (e) { toast.error(e?.response?.data?.detail || "Errore"); }
     finally { setBusy(false); }
   };
 
