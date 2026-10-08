@@ -5,6 +5,7 @@ import logging
 import os
 from datetime import datetime, timezone
 from typing import Optional
+from urllib.parse import urlsplit
 
 import stripe
 
@@ -12,6 +13,33 @@ logger = logging.getLogger(__name__)
 
 stripe.api_key = os.environ.get("STRIPE_SECRET_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+
+
+def _origin(url: str) -> str:
+    """'https://Host:443/path' -> 'https://host:443' (solo schema + host + porta)."""
+    try:
+        p = urlsplit((url or "").strip())
+    except ValueError:
+        return ""
+    if p.scheme not in ("http", "https") or not p.netloc:
+        return ""
+    return f"{p.scheme}://{p.netloc.lower()}"
+
+
+def safe_origin(origin_url: Optional[str]) -> str:
+    """Accetta origin_url solo se è in whitelist (PUBLIC_BASE_URL o CORS_ORIGINS),
+    altrimenti usa la base pubblica: evita redirect di Stripe verso domini arbitrari."""
+    public_base = _origin(os.environ.get("PUBLIC_BASE_URL", ""))
+    allowed = {public_base} | {
+        _origin(o) for o in os.environ.get("CORS_ORIGINS", "").split(",")
+    }
+    allowed.discard("")
+    candidate = _origin(origin_url or "")
+    if candidate and candidate in allowed:
+        return candidate
+    if public_base:
+        return public_base
+    raise ValueError("origin_url non consentito e PUBLIC_BASE_URL non configurato")
 
 
 def create_deposit_checkout(
@@ -31,6 +59,7 @@ def create_deposit_checkout(
     unit_amount = int(round(float(amount_eur) * 100))
     if unit_amount <= 0:
         raise ValueError("Deposit amount must be > 0")
+    origin_url = safe_origin(origin_url)
     kwargs = dict(
         mode="payment",
         payment_method_types=["card"],
