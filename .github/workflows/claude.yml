@@ -27,6 +27,7 @@ jobs:
       contents: write
       pull-requests: write
       issues: write
+      # Necessario a claude-code-action per ottenere il token della GitHub App via OIDC.
       id-token: write
       actions: read
     steps:
@@ -53,5 +54,5 @@ jobs:
             actions: read
           claude_args: |
             --max-turns 50
-            --allowedTools "Bash(cd:*),Bash(python:*),Bash(pip install:*),Bash(npm ci:*),Bash(npm install:*),Bash(npm run build:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*)"
-            --append-system-prompt "Progetto 21Reservation: backend FastAPI in backend/, frontend React (craco) in frontend/, deploy su Render. Scrivi commenti e messaggi in italiano. Modifiche piccole e mirate, mai su main. Prima di finire esegui gli stessi controlli di .github/workflows/ci.yml (compileall e import del backend con le variabili finte, npm run build con CI=false). Mai chiavi, password o dati personali nel codice: le credenziali stanno nelle variabili d'ambiente di Render. Il repo e pubblico."
+            --allowedTools "Bash(cd:*),Bash(python -m compileall:*),Bash(npm run build:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*)"
+            --append-system-prompt "Progetto 21Reservation: backend FastAPI in backend/, frontend React (craco) in frontend/, deploy su Render. Scrivi commenti e messaggi in italiano. Modifiche piccole e mirate, mai su main. Le dipendenze sono gia installate dal workflow: non installarne altre. Prima di finire esegui python -m compileall -q backend e npm run build (in frontend, con CI=false); l'import del backend lo verifica la CI sulla PR. Mai chiavi, password o dati personali nel codice: le credenziali stanno nelle variabili d'ambiente di Render. Il repo e pubblico."
