@@ -51,6 +51,7 @@ from whatsapp_service import (  # noqa: E402
 )
 
 import secrets as _secrets  # noqa: E402
+from html import escape as html_escape  # noqa: E402
 from fastapi import Request  # noqa: E402
 
 from db import (  # noqa: E402
@@ -988,18 +989,21 @@ async def _try_notify_waitlist(rid: str, date_str: str):
         book_link = f"{base}/book/{r['subdomain']}"
         # Email
         try:
+            e_rname = html_escape(r["name"])
+            e_cname = html_escape(w["customer_name"] or "")
+            e_link = html_escape(book_link)
             html = f"""
             <html><body style="font-family:Georgia,serif;background:#f6f6f6;padding:24px;">
               <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;border:1px solid #e4e4e7;">
                 <div style="background:#0a0a0a;color:#fafafa;padding:24px 32px;">
-                  <div style="font-size:12px;letter-spacing:.25em;text-transform:uppercase;color:#a1a1aa;">{r['name']}</div>
+                  <div style="font-size:12px;letter-spacing:.25em;text-transform:uppercase;color:#a1a1aa;">{e_rname}</div>
                   <div style="font-size:24px;margin-top:6px;">Un tavolo si è appena liberato</div>
                 </div>
                 <div style="padding:24px 32px;font-family:Arial,sans-serif;color:#0a0a0a;">
-                  <p>Ciao {w['customer_name']},</p>
-                  <p>C'è ora disponibilità per <strong>{w['persons']} persone</strong> in data <strong>{w['date']}</strong>.
+                  <p>Ciao {e_cname},</p>
+                  <p>C'è ora disponibilità per <strong>{html_escape(str(w['persons']))} persone</strong> in data <strong>{html_escape(str(w['date']))}</strong>.
                      Prenota subito prima che qualcun altro lo prenda:</p>
-                  <p><a href="{book_link}" style="display:inline-block;padding:12px 22px;background:#d97706;color:#0a0a0a;border-radius:999px;text-decoration:none;font-weight:600;">Prenota adesso</a></p>
+                  <p><a href="{e_link}" style="display:inline-block;padding:12px 22px;background:#d97706;color:#0a0a0a;border-radius:999px;text-decoration:none;font-weight:600;">Prenota adesso</a></p>
                 </div>
               </div>
             </body></html>
@@ -1049,8 +1053,8 @@ async def public_join_waitlist(subdomain: str, body: WaitlistCreate, request: Re
             await send_email(
                 r["email"],
                 f"Nuova iscrizione lista d'attesa — {body.customer_name}",
-                f"<p>{body.customer_name} è in lista d'attesa per il {body.date} — {body.persons} ospiti.</p>"
-                f"<p>Tel: {body.customer_phone}</p><p>Email: {body.customer_email}</p>",
+                f"<p>{html_escape(body.customer_name)} è in lista d'attesa per il {html_escape(body.date)} — {body.persons} ospiti.</p>"
+                f"<p>Tel: {html_escape(body.customer_phone)}</p><p>Email: {html_escape(str(body.customer_email))}</p>",
             )
         except Exception:
             pass
@@ -1089,9 +1093,9 @@ async def waitlist_notify_manual(wid: str, cur=Depends(get_current_user)):
     if doc.get("customer_email"):
         try:
             html = (
-                f"<p>Ciao {doc['customer_name']},</p>"
-                f"<p>Un tavolo per {doc['persons']} si è liberato da <strong>{r['name']}</strong> il {doc['date']}. "
-                f"<a href='{book_link}'>Prenota adesso</a>.</p>"
+                f"<p>Ciao {html_escape(doc['customer_name'] or '')},</p>"
+                f"<p>Un tavolo per {html_escape(str(doc['persons']))} si è liberato da <strong>{html_escape(r['name'])}</strong> il {html_escape(str(doc['date']))}. "
+                f"<a href='{html_escape(book_link)}'>Prenota adesso</a>.</p>"
             )
             ok_email = await send_email(doc["customer_email"], f"Un tavolo libero da {r['name']}", html)
         except Exception:
