@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import secrets
+from html import escape
 from datetime import datetime, timedelta, timezone
 
 from db import execute, fetch_all
@@ -21,7 +22,11 @@ def reminder_email_html(
     restaurant_name: str, guest_name: str, date: str, time: str, persons: int,
     cancel_url: str, address: str | None = None,
 ) -> str:
-    addr_line = f"<p style='margin:12px 0 0 0;color:#52525B;'>{address}</p>" if address else ""
+    restaurant_name = escape(str(restaurant_name or ""))
+    guest_name = escape(str(guest_name or ""))
+    date, time, persons = escape(str(date)), escape(str(time)), escape(str(persons))
+    cancel_url = escape(cancel_url)
+    addr_line = f"<p style='margin:12px 0 0 0;color:#52525B;'>{escape(address)}</p>" if address else ""
     return f"""
     <html><body style="margin:0;padding:0;background:#f6f6f6;font-family:Georgia,serif;">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f6f6;padding:32px 0;">

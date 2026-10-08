@@ -51,6 +51,7 @@ from whatsapp_service import (  # noqa: E402
 )
 
 import secrets as _secrets  # noqa: E402
+from html import escape as html_escape  # noqa: E402
 from fastapi import Request  # noqa: E402
 
 from db import (  # noqa: E402
@@ -81,10 +82,14 @@ async def _get_restaurant_by_subdomain(sub: str) -> dict:
 
 # ==================== AUTH ====================
 @api.post("/auth/login", response_model=LoginResponse)
-async def login(body: LoginRequest):
-    user = await fetch_one("SELECT * FROM users WHERE email = %s", (body.email.lower(),))
+async def login(body: LoginRequest, request: Request):
+    email = body.email.lower()
+    _check_login_rate_limit(request, email)
+    user = await fetch_one("SELECT * FROM users WHERE email = %s", (email,))
     if not user or not verify_password(body.password, user["password_hash"]):
+        _record_login_failure(request, email)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Credenziali non valide")
+    _login_failures.pop(_login_key(request, email), None)
     role = user.get("role", "staff")
     restaurant_obj = None
     if role != "agency_admin":
@@ -493,7 +498,11 @@ async def upsert_booking_limit(opening_hour_id: str, body: BookingLimitUpdate, c
 
 @api.delete("/booking-limits/{limit_id}")
 async def delete_booking_limit(limit_id: str, cur=Depends(get_current_user)):
-    rowcount = await execute("DELETE FROM booking_limits WHERE id = %s", (limit_id,))
+    rowcount = await execute(
+        "DELETE FROM booking_limits WHERE id = %s AND opening_hour_id IN "
+        "(SELECT id FROM opening_hours WHERE restaurant_id = %s)",
+        (limit_id, cur["restaurant_id"]),
+    )
     if rowcount == 0:
         raise HTTPException(404, "Booking limit not found")
     return {"deleted": True}
@@ -726,6 +735,19 @@ async def bookings_day_summary(
     return list(summary.values())
 
 
+async def _check_table_ids(rid: str, table_ids: Optional[List[str]]) -> None:
+    """400 se uno dei tavoli indicati non appartiene al ristorante dell'utente."""
+    if not table_ids:
+        return
+    wanted = set(table_ids)
+    ph = ", ".join(["%s"] * len(wanted))
+    rows = await fetch_all(
+        f"SELECT id FROM tables WHERE restaurant_id = %s AND id IN ({ph})", (rid, *wanted),
+    )
+    if len(rows) != len(wanted):
+        raise HTTPException(400, "Tavolo non valido")
+
+
 @api.post("/bookings", response_model=Booking)
 async def create_booking_staff(body: BookingCreateStaff, cur=Depends(get_current_user)):
     rid = cur["restaurant_id"]
@@ -753,6 +775,7 @@ async def create_booking_staff(body: BookingCreateStaff, cur=Depends(get_current
     existing = await _get_bookings_for_date(rid, body.date)
 
     table_ids = body.table_ids
+    await _check_table_ids(rid, table_ids)
     if not table_ids:
         auto = auto_assign_table(
             body.persons, body.date, body.time, duration,
@@ -841,6 +864,7 @@ async def update_booking(bid: str, body: BookingUpdate, cur=Depends(get_current_
         raise HTTPException(404, "Booking not found")
     upd = {k: v for k, v in body.model_dump(exclude_unset=True).items() if v is not None}
     table_ids = upd.pop("table_ids", None)
+    await _check_table_ids(cur["restaurant_id"], table_ids)
     old_status = existing.get("status")
     new_status = upd.get("status")
     status_changed = bool(new_status and new_status != old_status)
@@ -851,34 +875,37 @@ async def update_booking(bid: str, body: BookingUpdate, cur=Depends(get_current_
     eff_time = upd.get("time", existing["time"])
     eff_dur = upd.get("duration_minutes", existing["duration_minutes"])
 
-    async with get_conn() as conn:
-        if status_changed:
-            await conn.execute(
-                "INSERT INTO booking_status_history (booking_id, status, at, by_user_id) VALUES (%s,%s,%s,%s)",
-                (bid, new_status, utc_now(), cur["user_id"]),
-            )
-        if upd:
-            set_clause = ", ".join(f"{k} = %s" for k in upd)
-            await conn.execute(f"UPDATE bookings SET {set_clause} WHERE id = %s", (*upd.values(), bid))
-        if inactive:
-            # Free the table for new bookings; keep history of the bridge rows.
-            await conn.execute("UPDATE booking_tables SET active = FALSE WHERE booking_id = %s", (bid,))
-        elif table_ids is not None:
-            r = await _get_restaurant(cur["restaurant_id"])
-            start_ts = _ts_in_tz(r["timezone"], eff_date, eff_time)
-            end_ts = start_ts + timedelta(minutes=eff_dur)
-            await conn.execute("DELETE FROM booking_tables WHERE booking_id = %s", (bid,))
-            for tid in table_ids:
+    try:
+        async with get_conn() as conn:
+            if status_changed:
                 await conn.execute(
-                    "INSERT INTO booking_tables (booking_id, table_id, start_ts, end_ts, active) VALUES (%s,%s,%s,%s,TRUE)",
-                    (bid, tid, start_ts, end_ts),
+                    "INSERT INTO booking_status_history (booking_id, status, at, by_user_id) VALUES (%s,%s,%s,%s)",
+                    (bid, new_status, utc_now(), cur["user_id"]),
                 )
-        elif "date" in upd or "time" in upd or "duration_minutes" in upd:
-            # Keep same tables but refresh the time window.
-            r = await _get_restaurant(cur["restaurant_id"])
-            start_ts = _ts_in_tz(r["timezone"], eff_date, eff_time)
-            end_ts = start_ts + timedelta(minutes=eff_dur)
-            await conn.execute("UPDATE booking_tables SET start_ts = %s, end_ts = %s WHERE booking_id = %s", (start_ts, end_ts, bid))
+            if upd:
+                set_clause = ", ".join(f"{k} = %s" for k in upd)
+                await conn.execute(f"UPDATE bookings SET {set_clause} WHERE id = %s", (*upd.values(), bid))
+            if inactive:
+                # Free the table for new bookings; keep history of the bridge rows.
+                await conn.execute("UPDATE booking_tables SET active = FALSE WHERE booking_id = %s", (bid,))
+            elif table_ids is not None:
+                r = await _get_restaurant(cur["restaurant_id"])
+                start_ts = _ts_in_tz(r["timezone"], eff_date, eff_time)
+                end_ts = start_ts + timedelta(minutes=eff_dur)
+                await conn.execute("DELETE FROM booking_tables WHERE booking_id = %s", (bid,))
+                for tid in table_ids:
+                    await conn.execute(
+                        "INSERT INTO booking_tables (booking_id, table_id, start_ts, end_ts, active) VALUES (%s,%s,%s,%s,TRUE)",
+                        (bid, tid, start_ts, end_ts),
+                    )
+            elif "date" in upd or "time" in upd or "duration_minutes" in upd:
+                # Keep same tables but refresh the time window.
+                r = await _get_restaurant(cur["restaurant_id"])
+                start_ts = _ts_in_tz(r["timezone"], eff_date, eff_time)
+                end_ts = start_ts + timedelta(minutes=eff_dur)
+                await conn.execute("UPDATE booking_tables SET start_ts = %s, end_ts = %s WHERE booking_id = %s", (start_ts, end_ts, bid))
+    except ExclusionViolation:
+        raise HTTPException(409, "Il tavolo è già occupato in quello slot, riprova")
 
     if status_changed:
         await _recompute_customer_metrics(existing["customer_id"])
@@ -962,18 +989,21 @@ async def _try_notify_waitlist(rid: str, date_str: str):
         book_link = f"{base}/book/{r['subdomain']}"
         # Email
         try:
+            e_rname = html_escape(r["name"])
+            e_cname = html_escape(w["customer_name"] or "")
+            e_link = html_escape(book_link)
             html = f"""
             <html><body style="font-family:Georgia,serif;background:#f6f6f6;padding:24px;">
               <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;border:1px solid #e4e4e7;">
                 <div style="background:#0a0a0a;color:#fafafa;padding:24px 32px;">
-                  <div style="font-size:12px;letter-spacing:.25em;text-transform:uppercase;color:#a1a1aa;">{r['name']}</div>
+                  <div style="font-size:12px;letter-spacing:.25em;text-transform:uppercase;color:#a1a1aa;">{e_rname}</div>
                   <div style="font-size:24px;margin-top:6px;">Un tavolo si è appena liberato</div>
                 </div>
                 <div style="padding:24px 32px;font-family:Arial,sans-serif;color:#0a0a0a;">
-                  <p>Ciao {w['customer_name']},</p>
-                  <p>C'è ora disponibilità per <strong>{w['persons']} persone</strong> in data <strong>{w['date']}</strong>.
+                  <p>Ciao {e_cname},</p>
+                  <p>C'è ora disponibilità per <strong>{html_escape(str(w['persons']))} persone</strong> in data <strong>{html_escape(str(w['date']))}</strong>.
                      Prenota subito prima che qualcun altro lo prenda:</p>
-                  <p><a href="{book_link}" style="display:inline-block;padding:12px 22px;background:#d97706;color:#0a0a0a;border-radius:999px;text-decoration:none;font-weight:600;">Prenota adesso</a></p>
+                  <p><a href="{e_link}" style="display:inline-block;padding:12px 22px;background:#d97706;color:#0a0a0a;border-radius:999px;text-decoration:none;font-weight:600;">Prenota adesso</a></p>
                 </div>
               </div>
             </body></html>
@@ -1023,8 +1053,8 @@ async def public_join_waitlist(subdomain: str, body: WaitlistCreate, request: Re
             await send_email(
                 r["email"],
                 f"Nuova iscrizione lista d'attesa — {body.customer_name}",
-                f"<p>{body.customer_name} è in lista d'attesa per il {body.date} — {body.persons} ospiti.</p>"
-                f"<p>Tel: {body.customer_phone}</p><p>Email: {body.customer_email}</p>",
+                f"<p>{html_escape(body.customer_name)} è in lista d'attesa per il {html_escape(body.date)} — {body.persons} ospiti.</p>"
+                f"<p>Tel: {html_escape(body.customer_phone)}</p><p>Email: {html_escape(str(body.customer_email))}</p>",
             )
         except Exception:
             pass
@@ -1063,9 +1093,9 @@ async def waitlist_notify_manual(wid: str, cur=Depends(get_current_user)):
     if doc.get("customer_email"):
         try:
             html = (
-                f"<p>Ciao {doc['customer_name']},</p>"
-                f"<p>Un tavolo per {doc['persons']} si è liberato da <strong>{r['name']}</strong> il {doc['date']}. "
-                f"<a href='{book_link}'>Prenota adesso</a>.</p>"
+                f"<p>Ciao {html_escape(doc['customer_name'] or '')},</p>"
+                f"<p>Un tavolo per {html_escape(str(doc['persons']))} si è liberato da <strong>{html_escape(r['name'])}</strong> il {html_escape(str(doc['date']))}. "
+                f"<a href='{html_escape(book_link)}'>Prenota adesso</a>.</p>"
             )
             ok_email = await send_email(doc["customer_email"], f"Un tavolo libero da {r['name']}", html)
         except Exception:
@@ -1320,6 +1350,8 @@ async def public_create_booking(subdomain: str, body: BookingCreatePublic, reque
     oh = pick_opening_hour(body.date, ohs, service=body.service)
     if not oh:
         raise HTTPException(400, "Ristorante chiuso in quella data")
+    if body.time not in generate_slots(oh, body.persons):
+        raise HTTPException(400, "Orario non disponibile")
 
     duration = duration_for_persons(oh, body.persons)
     tables_all = await fetch_all("SELECT * FROM tables WHERE restaurant_id = %s AND bookable_online = TRUE", (rid,))
@@ -1470,11 +1502,18 @@ async def reports_summary(
 
 
 # ==================== SETTINGS ====================
+WHATSAPP_SECRET_FIELDS = ("whatsapp_twilio_sid", "whatsapp_twilio_auth_token", "whatsapp_meta_access_token")
+
+
 @api.patch("/restaurant", response_model=Restaurant)
 async def update_restaurant(body: RestaurantUpdate, cur=Depends(get_current_user)):
     if cur["role"] != "owner":
         raise HTTPException(403, "Owner role required")
     upd = {k: v for k, v in body.model_dump(exclude_unset=True).items() if v is not None}
+    # Segreti WhatsApp: il client non li riceve mai, quindi vuoto = "non cambiare".
+    for k in WHATSAPP_SECRET_FIELDS:
+        if k in upd and not str(upd[k]).strip():
+            upd.pop(k)
     if not upd:
         r = await _get_restaurant(cur["restaurant_id"])
         return Restaurant(**r)
@@ -1534,6 +1573,33 @@ def _check_public_rate_limit(request: Request, limit: int = 60, window: int = 60
     if len(_public_rate_limits[ip]) >= limit:
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "Troppe richieste, riprova più tardi")
     _public_rate_limits[ip].append(now)
+
+
+# Login: max LOGIN_MAX_FAILURES tentativi falliti per IP+email in LOGIN_WINDOW secondi.
+LOGIN_MAX_FAILURES = 10
+LOGIN_WINDOW = 15 * 60
+_login_failures: dict = {}  # (ip, email) -> list of timestamps
+
+
+def _login_key(request: Request, email: str):
+    return (request.client.host if request.client else "unknown", email)
+
+
+def _check_login_rate_limit(request: Request, email: str):
+    """Raise 429 se ci sono troppi tentativi falliti recenti per questo IP+email."""
+    key = _login_key(request, email)
+    now = _time.monotonic()
+    recent = [t for t in _login_failures.get(key, []) if t > now - LOGIN_WINDOW]
+    if recent:
+        _login_failures[key] = recent
+    else:
+        _login_failures.pop(key, None)
+    if len(recent) >= LOGIN_MAX_FAILURES:
+        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "Troppi tentativi di accesso, riprova tra qualche minuto")
+
+
+def _record_login_failure(request: Request, email: str):
+    _login_failures.setdefault(_login_key(request, email), []).append(_time.monotonic())
 
 
 def _check_poll_rate_limit():
@@ -1657,6 +1723,9 @@ async def public_do_cancel(token: str, request: Request):
         raise HTTPException(404, "Not found")
     if b["status"] == "cancelled":
         return {"ok": True, "already": True}
+    # Solo prenotazioni ancora attive e non iniziate (no seated / no_show / declined)
+    if b["status"] not in ("pending", "accepted"):
+        raise HTTPException(409, "Questa prenotazione non può più essere disdetta online")
     # Reject cancellation if token has expired
     expires_at = b.get("cancel_token_expires_at")
     if expires_at:
@@ -1664,7 +1733,12 @@ async def public_do_cancel(token: str, request: Request):
         if exp_dt.replace(tzinfo=timezone.utc) < utc_now():
             raise HTTPException(410, "Il link di cancellazione è scaduto")
     async with get_conn() as conn:
-        await conn.execute("UPDATE bookings SET status = 'cancelled' WHERE id = %s", (b["id"],))
+        cur = await conn.execute(
+            "UPDATE bookings SET status = 'cancelled' WHERE id = %s AND status IN ('pending', 'accepted')",
+            (b["id"],),
+        )
+        if cur.rowcount == 0:
+            raise HTTPException(409, "Questa prenotazione non può più essere disdetta online")
         await conn.execute(
             "INSERT INTO booking_status_history (booking_id, status, at, by_user_id) VALUES (%s,'cancelled',%s,NULL)",
             (b["id"], utc_now()),
@@ -1680,7 +1754,9 @@ async def cron_send_reminders(request: Request):
     # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
     auth = request.headers.get("authorization", "")
     expected = os.environ.get("WEBHOOK_CRON_SECRET", "")
-    if not expected or not auth.startswith("Bearer ") or auth.split(" ", 1)[1] != expected:
+    if not expected or not auth.startswith("Bearer ") or not _secrets.compare_digest(
+        auth.split(" ", 1)[1].encode(), expected.encode()
+    ):
         raise HTTPException(401, "Unauthorized")
     base_url = os.environ.get("PUBLIC_BASE_URL") or str(request.base_url).rstrip("/")
     results = []
@@ -1754,13 +1830,11 @@ async def on_shutdown():
 async def _seed_agency_admin():
     """Idempotently ensure a single agency_admin account exists (from env vars).
 
-    AGENCY_ADMIN_EMAIL / AGENCY_ADMIN_PASSWORD; falls back to demo values if unset.
+    AGENCY_ADMIN_EMAIL / AGENCY_ADMIN_PASSWORD. Senza password l'admin NON viene creato
+    (nessuna password di default). Se l'utente esiste già la sua password non viene toccata.
     """
     email = (os.environ.get("AGENCY_ADMIN_EMAIL") or "admin@21agency.com").lower()
     password = os.environ.get("AGENCY_ADMIN_PASSWORD")
-    if not password:
-        logger.warning("AGENCY_ADMIN_PASSWORD not set — using insecure default. Set this env var in production.")
-        password = "agency123"
     existing = await fetch_one("SELECT * FROM users WHERE email = %s", (email,))
     if existing:
         # Ensure role/restaurant fields are correct even if the row pre-existed with wrong shape
@@ -1772,6 +1846,9 @@ async def _seed_agency_admin():
         if update:
             set_clause = ", ".join(f"{k} = %s" for k in update)
             await execute(f"UPDATE users SET {set_clause} WHERE id = %s", (*update.values(), existing["id"]))
+        return
+    if not password:
+        logger.error("AGENCY_ADMIN_PASSWORD non impostata: account agency_admin NON creato. Impostala su Render.")
         return
     u = User(
         restaurant_id=None, name="Agency Admin", email=email,

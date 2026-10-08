@@ -6,6 +6,9 @@ import { useI18n } from "../i18n";
 import { useAuth } from "../auth";
 import { HERO_PRESETS, ACCENT_COLORS } from "../themePresets";
 
+// Placeholder per i campi segreti WhatsApp, che il server non restituisce mai.
+const secretPlaceholder = (isSet) => (isSet ? "•••••• già impostato (lascia vuoto per non cambiarlo)" : "non impostato");
+
 export default function Settings() {
   const { t } = useI18n();
   const { user } = useAuth();
@@ -34,10 +37,11 @@ export default function Settings() {
       whatsapp_enabled: !!data.whatsapp_enabled,
       whatsapp_provider: data.whatsapp_provider || "",
       whatsapp_from: data.whatsapp_from || "",
-      whatsapp_twilio_sid: data.whatsapp_twilio_sid || "",
-      whatsapp_twilio_auth_token: data.whatsapp_twilio_auth_token || "",
+      // I segreti non arrivano mai dal server: campo vuoto = "non cambiare".
+      whatsapp_twilio_sid: "",
+      whatsapp_twilio_auth_token: "",
       whatsapp_meta_phone_id: data.whatsapp_meta_phone_id || "",
-      whatsapp_meta_access_token: data.whatsapp_meta_access_token || "",
+      whatsapp_meta_access_token: "",
       deposit_enabled: !!data.deposit_enabled,
       deposit_threshold_persons: data.deposit_threshold_persons ?? 8,
       deposit_amount_per_person: data.deposit_amount_per_person ?? 20,
@@ -220,14 +224,14 @@ export default function Settings() {
           </Field>
           {form.whatsapp_provider === "twilio" && (
             <>
-              <Field label="Twilio Account SID"><input data-testid="s-wa-twilio-sid" disabled={!isOwner || !form.whatsapp_enabled} value={form.whatsapp_twilio_sid} onChange={(e) => set("whatsapp_twilio_sid", e.target.value)} className="input" /></Field>
-              <Field label="Twilio Auth Token"><input data-testid="s-wa-twilio-token" type="password" disabled={!isOwner || !form.whatsapp_enabled} value={form.whatsapp_twilio_auth_token} onChange={(e) => set("whatsapp_twilio_auth_token", e.target.value)} className="input" /></Field>
+              <Field label="Twilio Account SID"><input data-testid="s-wa-twilio-sid" disabled={!isOwner || !form.whatsapp_enabled} value={form.whatsapp_twilio_sid} onChange={(e) => set("whatsapp_twilio_sid", e.target.value)} className="input" placeholder={secretPlaceholder(r?.whatsapp_twilio_sid_set)} /></Field>
+              <Field label="Twilio Auth Token"><input data-testid="s-wa-twilio-token" type="password" disabled={!isOwner || !form.whatsapp_enabled} value={form.whatsapp_twilio_auth_token} onChange={(e) => set("whatsapp_twilio_auth_token", e.target.value)} className="input" placeholder={secretPlaceholder(r?.whatsapp_twilio_auth_token_set)} /></Field>
             </>
           )}
           {form.whatsapp_provider === "meta" && (
             <>
               <Field label="Meta Phone Number ID"><input data-testid="s-wa-meta-phone" disabled={!isOwner || !form.whatsapp_enabled} value={form.whatsapp_meta_phone_id} onChange={(e) => set("whatsapp_meta_phone_id", e.target.value)} className="input" /></Field>
-              <Field label="Meta Access Token"><input data-testid="s-wa-meta-token" type="password" disabled={!isOwner || !form.whatsapp_enabled} value={form.whatsapp_meta_access_token} onChange={(e) => set("whatsapp_meta_access_token", e.target.value)} className="input" /></Field>
+              <Field label="Meta Access Token"><input data-testid="s-wa-meta-token" type="password" disabled={!isOwner || !form.whatsapp_enabled} value={form.whatsapp_meta_access_token} onChange={(e) => set("whatsapp_meta_access_token", e.target.value)} className="input" placeholder={secretPlaceholder(r?.whatsapp_meta_access_token_set)} /></Field>
             </>
           )}
           {isOwner && form.whatsapp_enabled && form.whatsapp_provider && (

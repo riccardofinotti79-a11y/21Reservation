@@ -1,6 +1,7 @@
 """Transactional email via Resend REST API."""
 import logging
 import os
+from html import escape
 from typing import Optional
 
 import httpx
@@ -60,6 +61,11 @@ def booking_confirmation_html(
         "accepted": ("Confermata", "#059669"),
         "pending": ("In attesa di conferma", "#D97706"),
     }.get(status, ("Ricevuta", "#52525B"))
+    # Campi scritti da staff/ospiti: sempre escapati prima di finire nell'HTML.
+    restaurant_name = escape(str(restaurant_name or ""))
+    guest_name = escape(str(guest_name or ""))
+    date, time, persons = escape(str(date)), escape(str(time)), escape(str(persons))
+    address = escape(address) if address else None
     return f"""
     <html><body style="margin:0;padding:0;background:#f6f6f6;font-family:Georgia,serif;">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f6f6;padding:32px 0;">
@@ -115,7 +121,12 @@ def staff_notification_html(
     persons: int,
     message: Optional[str],
 ) -> str:
-    msg_html = f"<p style='margin:16px 0 0 0;'><em>Messaggio ospite:</em> {message}</p>" if message else ""
+    restaurant_name = escape(str(restaurant_name or ""))
+    guest_name = escape(str(guest_name or ""))
+    guest_phone = escape(str(guest_phone or ""))
+    guest_email = escape(str(guest_email or ""))
+    date, time, persons = escape(str(date)), escape(str(time)), escape(str(persons))
+    msg_html = f"<p style='margin:16px 0 0 0;'><em>Messaggio ospite:</em> {escape(message)}</p>" if message else ""
     return f"""
     <html><body style="font-family:Arial,sans-serif;color:#0a0a0a;">
       <h2 style="font-family:Georgia,serif;">Nuova prenotazione online</h2>

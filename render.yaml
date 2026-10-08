@@ -21,17 +21,17 @@ services:
       - key: AGENCY_ADMIN_PASSWORD
         sync: false
       - key: SEED_ENABLED
-        value: "true"
+        value: "false"
       - key: EMAIL_FROM
         value: ""
       - key: RESEND_API_KEY
-        value: ""
+        sync: false
       - key: STRIPE_SECRET_KEY
-        value: ""
+        sync: false
       - key: STRIPE_WEBHOOK_SECRET
-        value: ""
+        sync: false
       - key: WEBHOOK_CRON_SECRET
-        value: ""
+        sync: false
       - key: RUN_REPAIR_ON_BOOT
         value: "false"
 
