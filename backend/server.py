@@ -1350,6 +1350,8 @@ async def public_create_booking(subdomain: str, body: BookingCreatePublic, reque
     oh = pick_opening_hour(body.date, ohs, service=body.service)
     if not oh:
         raise HTTPException(400, "Ristorante chiuso in quella data")
+    if body.time not in generate_slots(oh, body.persons):
+        raise HTTPException(400, "Orario non disponibile")
 
     duration = duration_for_persons(oh, body.persons)
     tables_all = await fetch_all("SELECT * FROM tables WHERE restaurant_id = %s AND bookable_online = TRUE", (rid,))

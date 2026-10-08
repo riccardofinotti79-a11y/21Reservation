@@ -373,10 +373,13 @@ class BookingCreateStaff(BaseModel):
     customer_email: Optional[EmailStr] = None
 
 
+HHMM_PATTERN = r"^([01]\d|2[0-3]):[0-5]\d$"
+
+
 class BookingCreatePublic(BaseModel):
     date: str
-    time: str
-    persons: int
+    time: str = Field(pattern=HHMM_PATTERN)  # HH:MM, deve essere uno slot generato
+    persons: int = Field(ge=1, le=50)
     customer_name: str
     customer_email: EmailStr
     customer_phone: str
