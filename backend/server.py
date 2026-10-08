@@ -493,7 +493,11 @@ async def upsert_booking_limit(opening_hour_id: str, body: BookingLimitUpdate, c
 
 @api.delete("/booking-limits/{limit_id}")
 async def delete_booking_limit(limit_id: str, cur=Depends(get_current_user)):
-    rowcount = await execute("DELETE FROM booking_limits WHERE id = %s", (limit_id,))
+    rowcount = await execute(
+        "DELETE FROM booking_limits WHERE id = %s AND opening_hour_id IN "
+        "(SELECT id FROM opening_hours WHERE restaurant_id = %s)",
+        (limit_id, cur["restaurant_id"]),
+    )
     if rowcount == 0:
         raise HTTPException(404, "Booking limit not found")
     return {"deleted": True}
@@ -726,6 +730,19 @@ async def bookings_day_summary(
     return list(summary.values())
 
 
+async def _check_table_ids(rid: str, table_ids: Optional[List[str]]) -> None:
+    """400 se uno dei tavoli indicati non appartiene al ristorante dell'utente."""
+    if not table_ids:
+        return
+    wanted = set(table_ids)
+    ph = ", ".join(["%s"] * len(wanted))
+    rows = await fetch_all(
+        f"SELECT id FROM tables WHERE restaurant_id = %s AND id IN ({ph})", (rid, *wanted),
+    )
+    if len(rows) != len(wanted):
+        raise HTTPException(400, "Tavolo non valido")
+
+
 @api.post("/bookings", response_model=Booking)
 async def create_booking_staff(body: BookingCreateStaff, cur=Depends(get_current_user)):
     rid = cur["restaurant_id"]
@@ -753,6 +770,7 @@ async def create_booking_staff(body: BookingCreateStaff, cur=Depends(get_current
     existing = await _get_bookings_for_date(rid, body.date)
 
     table_ids = body.table_ids
+    await _check_table_ids(rid, table_ids)
     if not table_ids:
         auto = auto_assign_table(
             body.persons, body.date, body.time, duration,
@@ -841,6 +859,7 @@ async def update_booking(bid: str, body: BookingUpdate, cur=Depends(get_current_
         raise HTTPException(404, "Booking not found")
     upd = {k: v for k, v in body.model_dump(exclude_unset=True).items() if v is not None}
     table_ids = upd.pop("table_ids", None)
+    await _check_table_ids(cur["restaurant_id"], table_ids)
     old_status = existing.get("status")
     new_status = upd.get("status")
     status_changed = bool(new_status and new_status != old_status)
@@ -851,34 +870,37 @@ async def update_booking(bid: str, body: BookingUpdate, cur=Depends(get_current_
     eff_time = upd.get("time", existing["time"])
     eff_dur = upd.get("duration_minutes", existing["duration_minutes"])
 
-    async with get_conn() as conn:
-        if status_changed:
-            await conn.execute(
-                "INSERT INTO booking_status_history (booking_id, status, at, by_user_id) VALUES (%s,%s,%s,%s)",
-                (bid, new_status, utc_now(), cur["user_id"]),
-            )
-        if upd:
-            set_clause = ", ".join(f"{k} = %s" for k in upd)
-            await conn.execute(f"UPDATE bookings SET {set_clause} WHERE id = %s", (*upd.values(), bid))
-        if inactive:
-            # Free the table for new bookings; keep history of the bridge rows.
-            await conn.execute("UPDATE booking_tables SET active = FALSE WHERE booking_id = %s", (bid,))
-        elif table_ids is not None:
-            r = await _get_restaurant(cur["restaurant_id"])
-            start_ts = _ts_in_tz(r["timezone"], eff_date, eff_time)
-            end_ts = start_ts + timedelta(minutes=eff_dur)
-            await conn.execute("DELETE FROM booking_tables WHERE booking_id = %s", (bid,))
-            for tid in table_ids:
+    try:
+        async with get_conn() as conn:
+            if status_changed:
                 await conn.execute(
-                    "INSERT INTO booking_tables (booking_id, table_id, start_ts, end_ts, active) VALUES (%s,%s,%s,%s,TRUE)",
-                    (bid, tid, start_ts, end_ts),
+                    "INSERT INTO booking_status_history (booking_id, status, at, by_user_id) VALUES (%s,%s,%s,%s)",
+                    (bid, new_status, utc_now(), cur["user_id"]),
                 )
-        elif "date" in upd or "time" in upd or "duration_minutes" in upd:
-            # Keep same tables but refresh the time window.
-            r = await _get_restaurant(cur["restaurant_id"])
-            start_ts = _ts_in_tz(r["timezone"], eff_date, eff_time)
-            end_ts = start_ts + timedelta(minutes=eff_dur)
-            await conn.execute("UPDATE booking_tables SET start_ts = %s, end_ts = %s WHERE booking_id = %s", (start_ts, end_ts, bid))
+            if upd:
+                set_clause = ", ".join(f"{k} = %s" for k in upd)
+                await conn.execute(f"UPDATE bookings SET {set_clause} WHERE id = %s", (*upd.values(), bid))
+            if inactive:
+                # Free the table for new bookings; keep history of the bridge rows.
+                await conn.execute("UPDATE booking_tables SET active = FALSE WHERE booking_id = %s", (bid,))
+            elif table_ids is not None:
+                r = await _get_restaurant(cur["restaurant_id"])
+                start_ts = _ts_in_tz(r["timezone"], eff_date, eff_time)
+                end_ts = start_ts + timedelta(minutes=eff_dur)
+                await conn.execute("DELETE FROM booking_tables WHERE booking_id = %s", (bid,))
+                for tid in table_ids:
+                    await conn.execute(
+                        "INSERT INTO booking_tables (booking_id, table_id, start_ts, end_ts, active) VALUES (%s,%s,%s,%s,TRUE)",
+                        (bid, tid, start_ts, end_ts),
+                    )
+            elif "date" in upd or "time" in upd or "duration_minutes" in upd:
+                # Keep same tables but refresh the time window.
+                r = await _get_restaurant(cur["restaurant_id"])
+                start_ts = _ts_in_tz(r["timezone"], eff_date, eff_time)
+                end_ts = start_ts + timedelta(minutes=eff_dur)
+                await conn.execute("UPDATE booking_tables SET start_ts = %s, end_ts = %s WHERE booking_id = %s", (start_ts, end_ts, bid))
+    except ExclusionViolation:
+        raise HTTPException(409, "Il tavolo è già occupato in quello slot, riprova")
 
     if status_changed:
         await _recompute_customer_metrics(existing["customer_id"])
