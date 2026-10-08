@@ -1492,11 +1492,18 @@ async def reports_summary(
 
 
 # ==================== SETTINGS ====================
+WHATSAPP_SECRET_FIELDS = ("whatsapp_twilio_sid", "whatsapp_twilio_auth_token", "whatsapp_meta_access_token")
+
+
 @api.patch("/restaurant", response_model=Restaurant)
 async def update_restaurant(body: RestaurantUpdate, cur=Depends(get_current_user)):
     if cur["role"] != "owner":
         raise HTTPException(403, "Owner role required")
     upd = {k: v for k, v in body.model_dump(exclude_unset=True).items() if v is not None}
+    # Segreti WhatsApp: il client non li riceve mai, quindi vuoto = "non cambiare".
+    for k in WHATSAPP_SECRET_FIELDS:
+        if k in upd and not str(upd[k]).strip():
+            upd.pop(k)
     if not upd:
         r = await _get_restaurant(cur["restaurant_id"])
         return Restaurant(**r)

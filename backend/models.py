@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import List, Optional, Literal
 
-from pydantic import BaseModel, Field, ConfigDict, EmailStr
+from pydantic import BaseModel, Field, ConfigDict, EmailStr, model_validator
 
 
 def new_id() -> str:
@@ -53,13 +53,34 @@ class Restaurant(BaseModel):
     whatsapp_enabled: bool = False
     whatsapp_provider: Optional[str] = None  # "twilio" | "meta" | null
     whatsapp_from: Optional[str] = None
-    # Twilio credentials
-    whatsapp_twilio_sid: Optional[str] = None
-    whatsapp_twilio_auth_token: Optional[str] = None
+    # Twilio credentials — segreti: mai serializzati nelle risposte (exclude=True)
+    whatsapp_twilio_sid: Optional[str] = Field(default=None, exclude=True)
+    whatsapp_twilio_auth_token: Optional[str] = Field(default=None, exclude=True)
     # Meta Cloud API credentials
     whatsapp_meta_phone_id: Optional[str] = None
-    whatsapp_meta_access_token: Optional[str] = None
+    whatsapp_meta_access_token: Optional[str] = Field(default=None, exclude=True)
     created_at: datetime = Field(default_factory=utc_now)
+
+    # Al posto dei segreti il client riceve solo se sono impostati. Sono campi normali
+    # (non computed) così sopravvivono al dump/validate che FastAPI fa sul response_model.
+    whatsapp_twilio_sid_set: bool = False
+    whatsapp_twilio_auth_token_set: bool = False
+    whatsapp_meta_access_token_set: bool = False
+    whatsapp_configured: bool = False
+
+    @model_validator(mode="after")
+    def _flag_secrets(self):
+        self.whatsapp_twilio_sid_set = self.whatsapp_twilio_sid_set or bool(self.whatsapp_twilio_sid)
+        self.whatsapp_twilio_auth_token_set = self.whatsapp_twilio_auth_token_set or bool(self.whatsapp_twilio_auth_token)
+        self.whatsapp_meta_access_token_set = self.whatsapp_meta_access_token_set or bool(self.whatsapp_meta_access_token)
+        if self.whatsapp_twilio_sid or self.whatsapp_twilio_auth_token or self.whatsapp_meta_access_token:
+            configured = False
+            if self.whatsapp_enabled and self.whatsapp_provider == "twilio":
+                configured = bool(self.whatsapp_twilio_sid and self.whatsapp_twilio_auth_token and self.whatsapp_from)
+            elif self.whatsapp_enabled and self.whatsapp_provider == "meta":
+                configured = bool(self.whatsapp_meta_phone_id and self.whatsapp_meta_access_token)
+            self.whatsapp_configured = configured
+        return self
 
 
 class RestaurantUpdate(BaseModel):
