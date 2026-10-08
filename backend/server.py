@@ -1754,13 +1754,11 @@ async def on_shutdown():
 async def _seed_agency_admin():
     """Idempotently ensure a single agency_admin account exists (from env vars).
 
-    AGENCY_ADMIN_EMAIL / AGENCY_ADMIN_PASSWORD; falls back to demo values if unset.
+    AGENCY_ADMIN_EMAIL / AGENCY_ADMIN_PASSWORD. Senza password l'admin NON viene creato
+    (nessuna password di default). Se l'utente esiste già la sua password non viene toccata.
     """
     email = (os.environ.get("AGENCY_ADMIN_EMAIL") or "admin@21agency.com").lower()
     password = os.environ.get("AGENCY_ADMIN_PASSWORD")
-    if not password:
-        logger.warning("AGENCY_ADMIN_PASSWORD not set — using insecure default. Set this env var in production.")
-        password = "agency123"
     existing = await fetch_one("SELECT * FROM users WHERE email = %s", (email,))
     if existing:
         # Ensure role/restaurant fields are correct even if the row pre-existed with wrong shape
@@ -1772,6 +1770,9 @@ async def _seed_agency_admin():
         if update:
             set_clause = ", ".join(f"{k} = %s" for k in update)
             await execute(f"UPDATE users SET {set_clause} WHERE id = %s", (*update.values(), existing["id"]))
+        return
+    if not password:
+        logger.error("AGENCY_ADMIN_PASSWORD non impostata: account agency_admin NON creato. Impostala su Render.")
         return
     u = User(
         restaurant_id=None, name="Agency Admin", email=email,

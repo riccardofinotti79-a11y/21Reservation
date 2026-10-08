@@ -89,8 +89,7 @@ export default function Login() {
               {busy ? "…" : t("login.submit")}
             </button>
           </form>
-          <p className="mt-8 text-xs text-zinc-400 dark:text-zinc-500 font-mono">{t("login.demo_hint")}</p>
-          <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
+          <p className="mt-8 text-xs text-zinc-500 dark:text-zinc-400">
             Pagina pubblica demo: <a className="underline hover:text-zinc-900 dark:hover:text-zinc-100" href="/book/demo" data-testid="link-public-demo">/book/demo</a>
           </p>
         </div>
