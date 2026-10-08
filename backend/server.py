@@ -81,10 +81,14 @@ async def _get_restaurant_by_subdomain(sub: str) -> dict:
 
 # ==================== AUTH ====================
 @api.post("/auth/login", response_model=LoginResponse)
-async def login(body: LoginRequest):
-    user = await fetch_one("SELECT * FROM users WHERE email = %s", (body.email.lower(),))
+async def login(body: LoginRequest, request: Request):
+    email = body.email.lower()
+    _check_login_rate_limit(request, email)
+    user = await fetch_one("SELECT * FROM users WHERE email = %s", (email,))
     if not user or not verify_password(body.password, user["password_hash"]):
+        _record_login_failure(request, email)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Credenziali non valide")
+    _login_failures.pop(_login_key(request, email), None)
     role = user.get("role", "staff")
     restaurant_obj = None
     if role != "agency_admin":
@@ -1563,6 +1567,33 @@ def _check_public_rate_limit(request: Request, limit: int = 60, window: int = 60
     if len(_public_rate_limits[ip]) >= limit:
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "Troppe richieste, riprova più tardi")
     _public_rate_limits[ip].append(now)
+
+
+# Login: max LOGIN_MAX_FAILURES tentativi falliti per IP+email in LOGIN_WINDOW secondi.
+LOGIN_MAX_FAILURES = 10
+LOGIN_WINDOW = 15 * 60
+_login_failures: dict = {}  # (ip, email) -> list of timestamps
+
+
+def _login_key(request: Request, email: str):
+    return (request.client.host if request.client else "unknown", email)
+
+
+def _check_login_rate_limit(request: Request, email: str):
+    """Raise 429 se ci sono troppi tentativi falliti recenti per questo IP+email."""
+    key = _login_key(request, email)
+    now = _time.monotonic()
+    recent = [t for t in _login_failures.get(key, []) if t > now - LOGIN_WINDOW]
+    if recent:
+        _login_failures[key] = recent
+    else:
+        _login_failures.pop(key, None)
+    if len(recent) >= LOGIN_MAX_FAILURES:
+        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "Troppi tentativi di accesso, riprova tra qualche minuto")
+
+
+def _record_login_failure(request: Request, email: str):
+    _login_failures.setdefault(_login_key(request, email), []).append(_time.monotonic())
 
 
 def _check_poll_rate_limit():
